@@ -1,0 +1,97 @@
+# ملف الـ spike — بيانات التجربة بس. مش جزء من المشروع.
+# ⚠️ راجع الـ CV ده وصلّحه لو فيه حاجة غلط — كل النتايج معتمدة عليه.
+
+cv:
+  title: "AI & Automation Engineer"
+  years_experience: 3
+  location: "مصر — متاح ريموت ومستعد للانتقال للخليج"
+  summary: >
+    مهندس أتمتة وذكاء اصطناعي. خلفية في تحليل البيانات، بيبني أنظمة داخلية
+    تربط الـ LLMs بعمليات الشركات الحقيقية.
+  skills:
+    languages:   [Python, SQL, JavaScript, "Google Apps Script"]
+    ai:          ["OpenAI API", Ollama, "local LLMs", RAG, "hybrid retrieval", Whisper, "prompt engineering"]
+    automation:  [n8n, "REST APIs", Webhooks, "Zapier"]
+    data:        [Supabase, PostgreSQL, "ETL", "data modeling", "Power BI", "Excel"]
+    other:       [Git, Docker, "CRM systems"]
+  experience:
+    - "بناء أنظمة أتمتة داخلية بتربط CRMs وقواعد بيانات وAPIs خارجية"
+    - "بناء Meeting Copilot: Whisper محلي + Ollama + استرجاع هجين على تخزين RAG"
+    - "تصميم ونشر تكاملات LLM في سير عمل شغل حقيقي"
+    - "خطوط ETL وpipelines بيانات على Supabase/Postgres"
+    - "لوحات تحليلية وتقارير لأصحاب القرار"
+  no_experience_with:
+    - "Swift / iOS / تطوير موبايل"
+    - "Spark / Hadoop / big data موزّع"
+    - "Kubernetes"
+
+jobs:
+  - id: J1
+    expect: "عالي"
+    title: "AI Automation Engineer"
+    company: "Nexa Labs"
+    location: "Remote"
+    description: |
+      We are looking for an AI Automation Engineer to design and ship internal
+      systems that connect large language models to business operations.
+
+      Responsibilities:
+      - Build automation workflows integrating LLM APIs with internal tools
+      - Design and maintain REST API integrations and webhooks
+      - Work with Postgres/Supabase for application data
+      - Prototype retrieval-augmented generation features
+      - Partner with operations teams to identify automation opportunities
+
+      Requirements:
+      - 2+ years building software with Python
+      - Hands-on experience with LLM APIs (OpenAI, Anthropic, or similar)
+      - Comfortable with SQL and relational databases
+      - Experience with workflow automation tools (n8n, Zapier, Make)
+      - Good written English
+
+      Nice to have: experience with local models (Ollama, llama.cpp), vector search.
+
+  - id: J2
+    expect: "واطي"
+    title: "Senior iOS Engineer"
+    company: "Halcyon Mobile"
+    location: "Dubai, UAE — On-site"
+    description: |
+      Senior iOS Engineer to own our flagship consumer application.
+
+      Requirements:
+      - 8+ years of professional software engineering
+      - 5+ years shipping production iOS apps in Swift
+      - Deep knowledge of SwiftUI, UIKit, Combine
+      - Experience with Core Data, offline-first architecture
+      - Published apps on the App Store
+      - Experience leading code review and mentoring junior engineers
+
+      Responsibilities:
+      - Own architecture decisions for the iOS codebase
+      - Drive performance optimisation and crash-free rate targets
+      - Interface with design on complex animation work
+
+  - id: J3
+    expect: "؟؟ — دي الاختبار"
+    title: "Data Engineer"
+    company: "Arcadia Retail Group"
+    location: "Riyadh, Saudi Arabia — Hybrid"
+    description: |
+      Data Engineer to build and maintain our analytics data platform.
+
+      Requirements:
+      - 3+ years in data engineering or a closely related role
+      - Strong SQL and Python
+      - Experience building ETL/ELT pipelines
+      - Experience with Apache Spark and Airflow (or similar orchestrators)
+      - Familiarity with cloud data warehouses (BigQuery, Snowflake, Redshift)
+      - Understanding of dimensional modeling
+
+      Responsibilities:
+      - Build batch and streaming pipelines feeding the analytics warehouse
+      - Own data quality checks and pipeline observability
+      - Support analysts and BI developers with modeled datasets
+      - Collaborate with the emerging ML team on feature pipelines
+
+      Nice to have: exposure to ML workflows, dbt, Arabic language skills.

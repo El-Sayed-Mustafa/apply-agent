@@ -1,0 +1,15 @@
+{
+ "offers": [
+  {
+   "id": 7,
+   "title": "Data Engineer",
+   "city": "Riyadh",
+   "country": "Saudi Arabia",
+   "description": "<p>We are looking for a Data Engineer to build and own the pipelines feeding our analytics platform. You will design batch and streaming ingestion, model the warehouse, and put quality checks and observability around everything you ship.</p>",
+   "requirements": "<p>Strong SQL and Python. Experience with Airflow or a similar orchestrator.</p>",
+   "careers_url": "https://x.recruitee.com/o/7",
+   "published_at": "2026-08-01",
+   "remote": false
+  }
+ ]
+}

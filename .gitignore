@@ -1,0 +1,14 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.idea/
+.vscode/
+*.log
+
+# مخرجات الـ spike — السكريبتات بترفع، النتايج لأ
+spike/*.json
+spike/*.log
+!spike/data.yaml

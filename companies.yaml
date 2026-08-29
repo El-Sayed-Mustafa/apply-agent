@@ -1,0 +1,95 @@
+# سجل الشركات — ده الملف الوحيد اللي هتعدّله بشكل منتظم
+#
+# ازاي تجيب الـ token:
+#   1. افتح صفحة التوظيف بتاعة الشركة
+#   2. F12 → تاب Network → اعمل refresh
+#   3. دوّر على نداء فيه greenhouse / lever / ashby / recruitee / workable
+#   4. الـ token هو الجزء اللي بعد اسم النظام في اللينك
+#
+# أمثلة على شكل اللينك:
+#   greenhouse : https://boards-api.greenhouse.io/v1/boards/<token>/jobs?content=true
+#   lever      : https://api.lever.co/v0/postings/<token>?mode=json
+#   ashby      : https://api.ashbyhq.com/posting-api/job-board/<token>
+#   recruitee  : https://<token>.recruitee.com/api/offers/
+#   workable   : https://apply.workable.com/api/v1/widget/accounts/<token>?details=true
+#
+# tier: 1 = الشركات المستهدفة، 2 = مهتم، 3 = مراقبة بعيدة
+# بعد ما تضيف أي شركة، شغّل:  python -m src.main --verify
+
+companies:
+
+  # ═══════════════════════════════════════════════════════════════
+  # الخليج — الأولوية القصوى
+  # ═══════════════════════════════════════════════════════════════
+
+  - name: Mozn                 # شركة AI سعودية — الرياض
+    ats: workable
+    token: mozn-ai
+    tier: 1
+
+  - name: Tamara               # fintech سعودية — الرياض
+    ats: greenhouse
+    token: tamara
+    tier: 1
+
+  - name: Foodics              # تقنية مطاعم سعودية — الرياض
+    ats: workable
+    token: foodics
+    tier: 1
+
+  - name: Careem               # دبي
+    ats: greenhouse
+    token: careem
+    tier: 1
+
+  - name: Lean Tech            # السعودية — بورد صغير
+    ats: ashby
+    token: LeanTech
+    tier: 1
+
+  # ═══════════════════════════════════════════════════════════════
+  # ريموت / عالمية — شغل AI حقيقي
+  # ═══════════════════════════════════════════════════════════════
+
+  - name: Cohere
+    ats: ashby
+    token: cohere
+    tier: 1
+
+  - name: ElevenLabs
+    ats: ashby
+    token: elevenlabs
+    tier: 1
+
+  - name: HappyRobot
+    ats: ashby
+    token: happyrobot.ai
+    tier: 1
+
+  - name: Fuse Energy
+    ats: ashby
+    token: fuse
+    tier: 2
+
+  # ═══════════════════════════════════════════════════════════════
+  # Xebia — بوردات منفصلة لكل إقليم
+  # ═══════════════════════════════════════════════════════════════
+
+  - name: Xebia APAC
+    ats: greenhouse
+    token: xebiaapac
+    tier: 2
+
+  - name: Xebia DACH
+    ats: greenhouse
+    token: xebiadach
+    tier: 2
+
+  # ═══════════════════════════════════════════════════════════════
+  # لسه محتاجة بحث يدوي (F12 على صفحة التوظيف):
+  #   Tabby · Qashio · SiFi · Rasan · Bayzat · Riyadh Air
+  #   Master Works · Nana · Salla · Zid · Unifonic
+  #
+  # الأربعة دول جربت كل الصيغ على كل الأنظمة المدعومة وملقتهمش —
+  # يعني على الأرجح بيستخدموا Workday أو SmartRecruiters أو نظام خاص.
+  # ═══════════════════════════════════════════════════════════════

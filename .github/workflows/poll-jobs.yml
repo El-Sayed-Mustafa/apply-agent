@@ -1,0 +1,46 @@
+name: Poll jobs
+
+on:
+  schedule:
+    # كل ساعة. مواقع الوظايف مبتتحدثش أسرع من كده، والأسرع بيحرق دقايق ببلاش.
+    # ملحوظة: GitHub ممكن يأخّر التشغيل 5–15 دقيقة وقت الضغط.
+    - cron: "7 * * * *"
+  workflow_dispatch:          # زرار تشغيل يدوي من تاب Actions
+  push:
+    paths:
+      - "companies.yaml"      # عدّلت السجل؟ اتأكد منه فورًا
+      - "src/**"
+      - ".github/workflows/poll-jobs.yml"
+
+# تشغيلتين في نفس الوقت = شغل مكرر واحتمال تصادم عند الحفظ.
+# الجديدة تستنى القديمة تخلص، مش بتلغيها — الشغل نفسه مهم.
+concurrency:
+  group: poll-jobs
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        # الاختبارات بتشتغل قبل السحب. لو مصدر غيّر شكل الـ API،
+        # نعرف من هنا بدل ما نكتشف بعد أسبوع إن الداتا ناقصة.
+        run: pytest -q
+
+      - name: Poll job boards
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python -m src.main

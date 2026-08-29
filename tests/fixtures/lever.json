@@ -1,0 +1,25 @@
+[
+ {
+  "id": "lv-1",
+  "text": "ML Engineer",
+  "categories": {
+   "location": "Remote",
+   "commitment": "Full-time"
+  },
+  "descriptionPlain": "We are hiring a Machine Learning Engineer to design, train and deploy models that power our core product. You will work across the full lifecycle: data collection, feature engineering, training, evaluation and production serving. Requirements: 3+ years Python, strong SQL, experience with PyTorch or TensorFlow, and comfort owning services in production.",
+  "hostedUrl": "https://jobs.lever.co/x/lv-1",
+  "createdAt": 1770000000000,
+  "workplaceType": "remote"
+ },
+ {
+  "id": "lv-2",
+  "text": "Backend Engineer",
+  "categories": {
+   "location": "London",
+   "commitment": "Full-time"
+  },
+  "descriptionPlain": "We are hiring a Backend Engineer to design, train and deploy models that power our core product. You will work across the full lifecycle: data collection, feature engineering, training, evaluation and production serving. Requirements: 3+ years Python, strong SQL, experience with PyTorch or TensorFlow, and comfort owning services in production.",
+  "hostedUrl": "https://jobs.lever.co/x/lv-2",
+  "createdAt": 1770000000000
+ }
+]
