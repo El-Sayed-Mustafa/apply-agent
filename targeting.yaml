@@ -1,0 +1,117 @@
+# ═══════════════════════════════════════════════════════════════════════
+# سياسة الاستهداف — الملف ده ملكك، عدّله وقت ما تحب.
+#
+# القاعدة الأساسية: الفلتر مش "الوظيفة فين" — الفلتر "هل ياخدوا حد من بره؟"
+#
+#   ✅ ريموت مفتوح عالميًا
+#   ✅ حضوري + بيرعوا تأشيرة أو انتقال
+#   ❌ حضوري + بيطلبوا تصريح عمل عندك أصلاً
+#
+# ملحوظة: قوانين التأشيرات بتتغير. المستويات دي اجتهاد مبني على وضع
+# السوق العام، مش استشارة قانونية.
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── الدول ──────────────────────────────────────────────────────────────
+# tier 1 = الأولوية القصوى · 4 = ريموت بس · باقي الدنيا = ريموت فقط برضه
+
+countries:
+
+  # ── 1 · الخليج ومصر ──
+  # أسهل تأشيرات · استثمار AI ضخم · من غير ضرايب · قريب
+  tier_1:
+    - Saudi Arabia
+    - United Arab Emirates
+    - Qatar
+    - Kuwait
+    - Bahrain
+    - Oman
+    - Egypt
+
+  # ── 2 · أوروبا بمسارات حقيقية لغير الأوروبيين ──
+  # ألمانيا وهولندا الأقوى: البطاقة الزرقاء ومسار المهاجر الماهر
+  tier_2:
+    - Germany
+    - Netherlands
+    - Ireland
+    - Portugal
+    - Spain
+    - Poland
+    - Czechia
+    - Estonia
+
+  # ── 3 · قوية بس أبطأ وأكتر تنافسية ──
+  tier_3:
+    - Canada
+    - United Kingdom
+    - Japan
+    - Australia
+    - New Zealand
+    - Singapore
+
+  # ── 4 · الوظيفة الحضورية عندهم شبه مستحيلة، بس الريموت مفتوح ──
+  # أمريكا: قرعة H-1B · سويسرا: حصص ضيقة جدًا لغير الأوروبيين
+  tier_4_remote_only:
+    - United States
+    - Switzerland
+
+
+# ── الأهلية ────────────────────────────────────────────────────────────
+# البحث بيتم في نص الإعلان. الرفض بيتفحص الأول — عشان جملة زي
+# "we do not offer visa sponsorship" فيها كلمة sponsorship برضه.
+
+eligibility:
+
+  # لو أي واحدة اتطابقت → الوظيفة مرفوضة، مهما كان الباقي
+  blocking:
+    - "(?:do(?:es)?\\s+not|don't|cannot|can't|unable\\s+to|will\\s+not|won't)\\s+(?:be\\s+able\\s+to\\s+)?(?:offer|provide|consider)?\\s*(?:visa\\s+)?sponsor"
+    - "no\\s+(?:visa\\s+)?sponsorship"
+    - "without\\s+(?:the\\s+need\\s+for\\s+)?sponsorship"
+    - "sponsorship\\s+is\\s+not\\s+(?:available|offered|provided)"
+    - "must\\s+(?:be\\s+)?(?:legally\\s+)?(?:authori[sz]ed|eligible)\\s+to\\s+work"
+    - "work\\s+authori[sz]ation\\s+(?:is\\s+)?required"
+    - "must\\s+(?:currently\\s+)?(?:reside|live|be\\s+located|be\\s+based)\\s+in"
+    - "(?:citizens|nationals)\\s+only"
+    - "citizenship\\s+(?:is\\s+)?required"
+    - "security\\s+clearance"
+    - "(?:permanent\\s+resident|green\\s+card)\\s+(?:status\\s+)?required"
+
+  # لو اتطابقت (ومفيش رفض) → الوظيفة مفتوحة بتأكيد
+  open:
+    - "(?:visa\\s+)?sponsorship\\s+(?:is\\s+)?(?:available|provided|offered)"
+    - "(?:we|company)\\s+(?:will\\s+)?sponsor"
+    - "(?:happy|able|willing)\\s+to\\s+sponsor"
+    - "relocation\\s+(?:package|assistance|support|bonus)"
+    - "(?:will\\s+)?(?:help|assist)\\s+(?:with\\s+)?relocat"
+    - "open\\s+to\\s+(?:international|candidates\\s+worldwide)"
+    - "remote\\s*[-–—(]?\\s*(?:worldwide|global|anywhere)"
+    - "(?:work|hire)\\s+from\\s+anywhere"
+    - "fully\\s+remote.{0,40}(?:worldwide|global|any\\s+(?:country|timezone))"
+
+
+# ── الأدوار ────────────────────────────────────────────────────────────
+
+roles:
+  include:
+    - "\\bai\\b"
+    - "machine\\s+learning"
+    - "\\bml\\b"
+    - "\\bllm\\b"
+    - "data\\s+(?:engineer|scientist|analyst|platform)"
+    - "automation\\s+engineer"
+    - "backend\\s+engineer"
+    - "software\\s+engineer"
+    - "platform\\s+engineer"
+    - "solutions?\\s+(?:engineer|architect)"
+    - "forward\\s+deployed"
+    - "integration\\s+engineer"
+
+  # مهما كان الباقي، دي مش وظايفك
+  exclude:
+    - "\\b(?:ios|android|mobile)\\b"
+    - "\\b(?:swift|kotlin|flutter)\\b"
+    - "front[\\s-]?end"
+    - "\\bdesigner?\\b"
+    - "\\b(?:sales|marketing|recruit|legal|finance|counsel)\\b"
+    - "account\\s+executive"
+    - "\\bintern\\b"
+    - "\\b(?:director|vp|vice\\s+president|head\\s+of)\\b"
