@@ -7,6 +7,7 @@
 
 ده test مش eval: مفيش "نسبة نجاح" مقبولة هنا. لازم 100%.
 """
+import pathlib
 import re
 
 import pytest
@@ -121,9 +122,47 @@ def test_context_has_no_bullets():
 
 
 def test_html_builds():
-    h = render.build_html(tailor.full(), KNOWN, ["b1", "b7"], "AI Engineer")
-    assert "Elsayed Mustafa" in h and "AI Engineer" in h
+    h = render.build_html(tailor.full(), KNOWN, ["b1", "b7"], "Product AI Engineer")
+    assert "Elsayed Mustafa" in h
     assert h.count("@font-face") == 4          # الخط متضمّن، مش خارجي
+
+
+def test_title_comes_from_cv_not_model():
+    """
+    العنوان ثابت من cv.yaml. الموديل كان بيغيّره كل مرة
+    ("Product AI Engineer" · "AI Automation and Workflow Engineer") —
+    وده بيضيّق تصنيفك عند الـ recruiter من غير داعي.
+    """
+    h = render.build_html(tailor.full(), KNOWN, ["b1"], "Product AI Engineer")
+    assert "Product AI Engineer" not in h
+    assert "Automation Engineer" in h
+
+
+def test_no_absolute_positioning():
+    """
+    position:absolute في النقط كان بيخلي Chromium يرسم القايمة في
+    طبقة منفصلة، فالنقط بتتأخر في ترتيب النص جوّه الـ PDF وبتتقري
+    بعد كل العناوين. الاختبار ده بيمنع رجوعها.
+    """
+    css = pathlib.Path("src/cv_template.html").read_text(encoding="utf-8")
+    # التعليقات بتتشال الأول — الاختبار على الـ CSS الفعلي، مش على
+    # الشرح اللي بيذكر الحاجة اللي بنمنعها
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    css = re.sub(r"<!--.*?-->", "", css, flags=re.S)
+    flat = css.replace(" ", "")
+    assert "position:absolute" not in flat
+    assert "position:fixed" not in flat
+    # order: بيعيد الترتيب بصريًا من غير ما يغيّر الـ DOM — بالظبط
+    # اللي بيخلي الـ ATS يقرا حاجة غير اللي إنت شايفه
+    assert not re.search(r"[;{]order:", flat)
+
+
+def test_job_is_one_block():
+    """العنوان والنقط جوّه نفس الـ article — مايتفصلوش في ترتيب النص."""
+    bullets, _ = tailor.load_catalogue()
+    h = render.build_html(tailor.full(), bullets, ["b1", "b2"], "")
+    art = h[h.index("<article"):h.index("</article>")]
+    assert "BlueBug" in art and "<li>" in art
 
 
 def test_html_contains_only_chosen_bullets():

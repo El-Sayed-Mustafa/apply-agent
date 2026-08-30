@@ -26,6 +26,24 @@ FONTS = ROOT / "assets" / "fonts" / "TTF"
 
 SEP = '<span class="sep">·</span>'
 
+# أيقونات SVG بسيطة — مرسومة مش حروف، فمبتظهرش في استخراج النص
+_SVG = {
+    "mail":  '<path d="M2 4h12v8H2z"/><path d="M2 5l6 4 6-4"/>',
+    "phone": '<path d="M4 2h3l1.5 3.5-2 1a9 9 0 004 4l1-2L15 10v3a1 1 0 01-1 1'
+             'A11.5 11.5 0 013 3a1 1 0 011-1z"/>',
+    "pin":   '<path d="M8 14s5-4.4 5-8A5 5 0 003 6c0 3.6 5 8 5 8z"/>'
+             '<circle cx="8" cy="6" r="1.8"/>',
+    "check": '<circle cx="8" cy="8" r="6.2"/><path d="M5.4 8.2l1.9 1.9 3.4-3.9"/>',
+    "link":  '<path d="M6.8 9.2a3 3 0 004.3 0l2-2a3 3 0 00-4.3-4.3l-1 1"/>'
+             '<path d="M9.2 6.8a3 3 0 00-4.3 0l-2 2a3 3 0 004.3 4.3l1-1"/>',
+}
+
+
+def icon(name: str) -> str:
+    body = _SVG.get(name, "")
+    return (f'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true">{body}</svg>'
+            if body else "")
+
 
 # ── الخطوط ──────────────────────────────────────────────────────────────
 
@@ -84,15 +102,17 @@ def _bullets(ids: list[str], bullets: dict) -> str:
 def _header_meta(contact: dict, profile: dict) -> str:
     bits = []
     if contact.get("email"):
-        bits.append(link(contact["email"], f"mailto:{contact['email']}"))
+        bits.append(icon("mail")
+                    + link(contact["email"], f"mailto:{contact['email']}"))
     if contact.get("phone"):
-        bits.append(link(contact["phone"], f"tel:{contact['phone']}"))
+        bits.append(icon("phone")
+                    + link(contact["phone"], f"tel:{contact['phone']}"))
     if contact.get("location"):
-        bits.append(esc(contact["location"]))
+        bits.append(icon("pin") + esc(contact["location"]))
     if profile.get("notes"):
-        bits.append(esc(profile["notes"]))
+        bits.append(icon("check") + esc(profile["notes"]))
     for label, url in (contact.get("links") or {}).items():
-        bits.append(link(label, url))
+        bits.append(icon("link") + link(label, url))
     return SEP.join(bits)
 
 
@@ -104,12 +124,14 @@ def _experience(cv: dict, picked: dict, order: dict, bullets: dict) -> str:
     out = []
     for e in rows:
         when = "  |  ".join(filter(None, [e.get("period"), e.get("mode")]))
+        # article واحد فيه العنوان والنقط — مايتفصلوش لا بصريًا
+        # ولا في ترتيب النص جوّه الملف
         out.append(
-            '<div class="entry">'
+            '<article class="block"><div class="head">'
             f'<div><span class="what">{esc(e.get("role"))}</span>'
             f'<span class="where">, {esc(e.get("company"))}</span></div>'
             f'<div class="when">{esc(when)}</div></div>'
-            + _bullets(picked[e["id"]], bullets))
+            + _bullets(picked[e["id"]], bullets) + "</article>")
     return "<section><h2>Experience</h2>" + "".join(out) + "</section>"
 
 
@@ -121,12 +143,12 @@ def _projects(cv: dict, picked: dict, order: dict, bullets: dict) -> str:
     out = []
     for p in rows:
         out.append(
-            '<div class="entry">'
+            '<article class="block"><div class="head">'
             f'<div class="what">{link(p.get("name"), p.get("url"))}</div>'
             "</div>"
             + (f'<div class="stack">{esc(p.get("stack"))}</div>'
                if p.get("stack") else "")
-            + _bullets(picked[p["id"]], bullets))
+            + _bullets(picked[p["id"]], bullets) + "</article>")
     return "<section><h2>Projects</h2>" + "".join(out) + "</section>"
 
 
@@ -156,10 +178,10 @@ def _education(cv: dict) -> str:
     rows = []
     for e in (cv.get("education") or []):
         rows.append(
-            '<div class="entry">'
+            '<article class="block"><div class="head">'
             f'<div><span class="what">{esc(e.get("degree"))}</span>'
             f'<span class="where">, {esc(e.get("school"))}</span></div>'
-            f'<div class="when">{esc(e.get("period"))}</div></div>')
+            f'<div class="when">{esc(e.get("period"))}</div></div></article>')
         tail = " · ".join(filter(None, [e.get("department"),
                                         e.get("project_short")]))
         if tail:
@@ -226,7 +248,10 @@ def build_html(cv: dict, bullets: dict, chosen: list[str],
 
     return (_template()
             .replace("__NAME__", esc(contact.get("name")))
-            .replace("__ROLE__", esc(headline or profile.get("title")))
+            # العنوان من cv.yaml دايمًا. الموديل كان بيغيّره كل مرة
+            # ("Product AI Engineer") وده بيضيّق تصنيفك عند الـ recruiter
+            # من غير داعي — والعنوان الثابت بيبني هوية واحدة.
+            .replace("__ROLE__", esc(profile.get("title")))
             .replace("__META__", _header_meta(contact, profile))
             .replace("__BODY__", body))
 
