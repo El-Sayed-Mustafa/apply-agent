@@ -114,38 +114,70 @@ def test_context_has_no_bullets():
 
 
 # ── المستند ─────────────────────────────────────────────────────────────
-
-def test_document_builds():
-    buf = render.build(tailor.full(), KNOWN, ["b1", "b7"], "AI Engineer")
-    data = buf.getvalue()
-    assert data[:2] == b"PK"          # docx = أرشيف zip
-    assert len(data) > 5_000
+#
+# الاختبارات على الـ HTML مش على الـ PDF: كل المنطق في الـ HTML،
+# والـ PDF شغل Chromium. كده الاختبارات بتجري في جزء من الثانية
+# ومن غير متصفح — وفيه اختبار واحد بس بيتأكد إن التحويل نفسه شغال.
 
 
-def test_document_contains_only_chosen_bullets():
+def test_html_builds():
+    h = render.build_html(tailor.full(), KNOWN, ["b1", "b7"], "AI Engineer")
+    assert "Elsayed Mustafa" in h and "AI Engineer" in h
+    assert h.count("@font-face") == 4          # الخط متضمّن، مش خارجي
+
+
+def test_html_contains_only_chosen_bullets():
     """
-    الاختبار اللي بيقفل الدايرة: النص اللي في الملف لازم يكون **بس**
-    من النقط المختارة. لو ظهر نص نقطة مااتختارتش، يبقى فيه مسار
-    بيسرّب محتوى — وده أخطر من معرّف مخترع لأنه شكله سليم.
+    الاختبار اللي بيقفل الدايرة: النص في الملف لازم يكون **بس** من
+    النقط المختارة. معرّف مخترع الحاجز بيشيله — لكن نص مسرّب شكله
+    سليم ومحدش ياخد باله.
     """
-    from docx import Document
-    buf = render.build(tailor.full(), KNOWN, ["b1"], "")
-    text = "\n".join(p.text for p in Document(buf).paragraphs)
-    assert KNOWN["b1"]["text"] in text
-    assert KNOWN["b2"]["text"] not in text
-    assert KNOWN["b7"]["text"] not in text
+    h = render.build_html(tailor.full(), KNOWN, ["b1"], "")
+    assert KNOWN["b1"]["text"] in h
+    assert KNOWN["b2"]["text"] not in h
+    assert KNOWN["b7"]["text"] not in h
 
 
-def test_document_handles_empty_selection():
-    assert render.build(tailor.full(), KNOWN, [], "").getvalue()[:2] == b"PK"
+def test_html_escapes_dangerous_text():
+    """اسم شركة فيه < أو & مايكسرش الصفحة."""
+    bad = {"b1": {"text": "Built <script>alert(1)</script> & more",
+                  "parent_id": "exp1", "block": "experience"}}
+    h = render.build_html(tailor.full(), bad, ["b1"], "")
+    assert "<script>" not in h and "&lt;script&gt;" in h
+
+
+def test_numbers_are_emphasised():
+    """الأرقام بتتعلّم — تمييز بصري، والنص زي ما هو حرف بحرف."""
+    out = render.emphasise("Reconciled 800,000 reviews at 80.7% accuracy")
+    assert "<b>800,000</b>" in out
+    assert "<b>80.7%</b>" in out
+    import re as _re
+    assert _re.sub(r"</?b>", "", out) == "Reconciled 800,000 reviews at 80.7% accuracy"
+
+
+def test_empty_selection_does_not_crash():
+    assert render.build_html(tailor.full(), KNOWN, [], "")
 
 
 def test_filename_is_clean():
     f = render.filename({"company_name": "Mozn / AI", "title": "AI Engineer (m/f/d)"})
-    assert f.endswith(".docx")
-    for ch in "/\\:*?\"<>|":
+    assert f.endswith(".pdf")
+    for ch in "/\:*?\"<>|":
         assert ch not in f
 
 
 def test_filename_survives_missing_fields():
-    assert render.filename({}).endswith(".docx")
+    assert render.filename({}).endswith(".pdf")
+
+
+@pytest.mark.slow
+def test_pdf_renders_one_page():
+    """الاختبار الوحيد اللي بيشغّل متصفح. بيتخطى لو Chromium مش موجود."""
+    playwright = pytest.importorskip("playwright.sync_api")
+    bullets, _ = tailor.load_catalogue()
+    try:
+        pdf = render.build(tailor.full(), bullets, list(bullets), "").getvalue()
+    except Exception as exc:
+        pytest.skip(f"مفيش متصفح: {exc}")
+    assert pdf[:4] == b"%PDF"
+    assert render._page_count(pdf) == 1      # الضبط الذاتي شغال

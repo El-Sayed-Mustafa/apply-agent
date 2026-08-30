@@ -27,35 +27,46 @@ from .scoring import MODELS, _is_daily_quota, _retry_delay
 MODEL_LIST = MODELS
 TAILOR_VERSION = os.getenv("TAILOR_VERSION", "v1")
 CV_PATH = os.getenv("CV_PATH", "cv.yaml")
-MAX_BULLETS = int(os.getenv("TAILOR_MAX_BULLETS", "8"))
+MAX_BULLETS = int(os.getenv("TAILOR_MAX_BULLETS", "16"))
 API_RETRIES = 4
 
+# حقلين منفصلين مش قايمة واحدة: كده تركيبة السيرة مضمونة بالبنية
+# نفسها — خبرة ومشاريع — مش متروكة لمزاج الموديل في كل نداء.
 SCHEMA = {
     "type": "object",
     "properties": {
-        # القايمة المقفولة. الترتيب معنى: الأهم للوظيفة دي الأول.
-        "bullet_ids": {"type": "array", "items": {"type": "string"}},
-        "headline":   {"type": "string"},
-        "note":       {"type": "string"},
+        "experience_ids": {"type": "array", "items": {"type": "string"}},
+        "project_ids":    {"type": "array", "items": {"type": "string"}},
+        "headline":       {"type": "string"},
+        "note":           {"type": "string"},
     },
-    "required": ["bullet_ids", "headline", "note"],
+    "required": ["experience_ids", "project_ids", "headline", "note"],
 }
 
-PROMPT = """Select which of the candidate's existing CV bullets to show for this job,
-and in what order.
+PROMPT = """Select which of the candidate's existing CV bullets to show for this
+job, and in what order. The CV must fit on ONE dense page.
 
 YOU MAY ONLY RETURN IDs FROM THIS LIST. Nothing else exists.
 {catalogue}
 
+RETURN TWO SEPARATE LISTS:
+
+`experience_ids` — 8 to 11 ids from the EXPERIENCE block, most relevant first.
+`project_ids`    — 4 to 6 ids drawn from exactly 2 or 3 DIFFERENT projects,
+                   strongest project first. Pick the projects that best prove
+                   this job's requirements, not the ones that sound biggest.
+
 RULES:
-- Return between 4 and {max_bullets} ids, most relevant to THIS job first.
 - Never invent an id. Never invent experience.
-- Do not select a bullet just because it sounds impressive — select it because
-  the job description asks for that thing.
-- `headline`: a job title line for the CV, max 6 words, drawn from what the
-  candidate actually does. Not a slogan.
+- Order matters: the page is trimmed from the end, so the last ids you return
+  are the ones most likely to be cut. Put the strongest first.
+- Prefer bullets carrying concrete numbers — those are what a reader stops on.
+- Select a bullet because the job description asks for that thing, not because
+  it sounds impressive.
+- `headline`: a job title line, max 6 words, drawn from what the candidate
+  actually does. Not a slogan.
 - `note`: 2 sentences the candidate could send a recruiter. Reference only
-  things covered by the bullets you selected. No claims beyond them.
+  things covered by the bullets you selected.
 
 JOB
 Title: {title}
@@ -131,17 +142,24 @@ def context(path: str | None = None) -> dict:
 
 # ── الاختيار ────────────────────────────────────────────────────────────
 
-def validate(raw_ids, known: dict[str, dict]) -> tuple[list[str], list[str]]:
+def validate(raw_ids, known: dict[str, dict],
+             block: str | None = None) -> tuple[list[str], list[str]]:
     """
     الحاجز. أي معرّف مش في الكتالوج بيتشال.
 
     الاختبار على الدالة دي لازم مايفشلش أبدًا — ده test مش eval.
     لو عدّى معرّف مخترع، معناه إن فيه نص في الـ CV مالوش أصل.
+
+    block بيقيّد كمان على القسم: معرّف خبرة اترجع في قايمة المشاريع
+    بيتشال — عشان تركيبة الصفحة تفضل زي ما اتصممت.
     """
     kept, dropped, seen = [], [], set()
     for x in (raw_ids or []):
         bid = str(x).strip()
-        if bid in known and bid not in seen:
+        ok = bid in known and bid not in seen
+        if ok and block and known[bid].get("block") != block:
+            ok = False
+        if ok:
             seen.add(bid)
             kept.append(bid)
         else:
@@ -187,9 +205,11 @@ def tailor(client, job: dict, cv_path: str | None = None,
             except Exception as exc:
                 return None, f"JSON باظ: {exc}"
 
-            kept, dropped = validate(out.get("bullet_ids"), known)
-            if len(kept) < 3:
-                return None, f"اختار {len(kept)} نقط بس — قليل أوي"
+            exp, d1 = validate(out.get("experience_ids"), known, block="experience")
+            proj, d2 = validate(out.get("project_ids"), known, block="projects")
+            kept, dropped = exp + proj, d1 + d2
+            if len(exp) < 3 or len(proj) < 2:
+                return None, f"اختار {len(exp)} خبرة و{len(proj)} مشاريع — قليل"
 
             return Tailored(
                 bullet_ids=kept,

@@ -39,6 +39,12 @@ profile:
     together. Owns solutions from requirements and data modeling through
     integration, testing, and delivery.
 
+  # النسخة اللي بتتحط في السيرة — سطرين بالظبط عشان الصفحة الواحدة
+  summary_short: >
+    AI & Automation Engineer who ships production LLM and automation systems
+    end to end — backend, data, retrieval, and the integrations between them.
+    Owns delivery from vague requirements to systems that run unattended.
+
 # ── المهارات ───────────────────────────────────────────────────────────
 
 skills:
@@ -213,11 +219,13 @@ projects:
 # ── التعليم والشهادات ──────────────────────────────────────────────────
 
 education:
-  - degree: "B.Sc. in Computer and Information Science"
+  - degree: "B.Sc. Computer and Information Science"
     school: "Ain Shams University"
     period: "2020 — 2024"
     department: "Scientific Computing"
     project: "Graduation Project — Data-Driven English Practice App: processed datasets to simulate conversation and grammar correction, applied data-driven techniques to improve accuracy and feedback, and gained experience in data preparation, model fine-tuning and result analysis."
+    # النسخة المختصرة — للصفحة الواحدة
+    project_short: "Graduation project: data-driven English practice app — conversation simulation and grammar correction"
 
 certificates:
   - name: "Machine Learning Specialization"
