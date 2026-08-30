@@ -1,11 +1,13 @@
 """
 نقطة التشغيل.
 
-  python -m src.main            → اسحب من كل الشركات واحفظ الجديد
-  python -m src.main --verify   → بس اتأكد إن كل شركة في السجل بترجّع وظايف
-  python -m src.main --dry-run  → اسحب واعرض من غير ما تحفظ
+  python -m src.main                  → اسحب من كل المصادر، احفظ، واكتشف شركات
+  python -m src.main --verify         → اتأكد من السجل بس
+  python -m src.main --dry-run        → اسحب واعرض من غير حفظ
+  python -m src.main --no-aggregators → البذور بس، من غير المصادر التجميعية
+  python -m src.main --no-discover    → اسحب واحفظ من غير توسيع السجل
 
-الخطوات: اقرا السجل → اسحب → طبّع → شيل المكرر → احفظ الجديد بس.
+الخطوات: اقرا السجل → اسحب → شيل المكرر → احفظ الجديد → اكتشف شركات جديدة.
 مفيش AI هنا. ده الجزء الممل والمهم.
 """
 
@@ -20,12 +22,15 @@ from datetime import datetime, timezone
 import yaml
 from dotenv import load_dotenv
 
+from . import discovery
 from .adapters import Job, fetch
+from .aggregators import AGGREGATORS, fetch_all as fetch_aggregators
 
 load_dotenv()
 
 REGISTRY_PATH = os.getenv("REGISTRY_PATH", "companies.yaml")
-CHUNK = 200  # عدد البصمات في استعلام واحد
+CHUNK = 200                       # عدد البصمات في استعلام واحد
+AGG_SOURCES = set(AGGREGATORS)
 
 
 # ---------------------------------------------------------------------------
@@ -168,42 +173,64 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--verify", action="store_true", help="اتأكد من السجل بس")
     ap.add_argument("--dry-run", action="store_true", help="اسحب من غير حفظ")
+    ap.add_argument("--no-aggregators", action="store_true", help="البذور بس")
+    ap.add_argument("--no-discover", action="store_true", help="من غير اكتشاف شركات")
     args = ap.parse_args()
 
-    companies = load_companies()
-    print(f"📋 السجل: {len(companies)} شركة\n")
+    offline = args.verify or args.dry_run
+    seeds = load_companies()
+    client = None if offline else get_client()
 
+    # السجل في الداتابيز هو المصدر وقت التشغيل الحقيقي: البذور زائد اللي
+    # المنظومة اكتشفته. الـ YAML بيتزامن جوّاه كل مرة، فتعديلك فيه بيوصل.
+    if client:
+        discovery.sync_seeds(client, seeds)
+        companies = discovery.active_companies(client) or seeds
+    else:
+        companies = seeds
+
+    print(f"📋 السجل: {len(companies)} شركة")
+    print()
     jobs, report = collect(companies)
+
+    if not args.no_aggregators:
+        agg_jobs, agg_report = fetch_aggregators()
+        for r in agg_report:
+            icon = {"ok": "✅", "empty": "⚠️ "}.get(r["status"], "❌")
+            print(f"{icon} {r['company']}: {r.get('count', 0)} وظيفة")
+        jobs += agg_jobs
+        report += agg_report
+
     jobs = dedupe_in_batch(jobs)
 
     ok = sum(1 for r in report if r["status"] == "ok")
     empty = [r["company"] for r in report if r["status"] == "empty"]
     failed = [r["company"] for r in report if r["status"] == "failed"]
 
-    print(f"\n📊 {ok} مصدر شغال · {len(empty)} فاضي · {len(failed)} فشل")
+    print()
+    print(f"📊 {ok} مصدر شغال · {len(empty)} فاضي · {len(failed)} فشل")
     print(f"📥 {len(jobs)} وظيفة فريدة في السحبة دي")
 
     if empty:
-        print(f"⚠️  رجّعوا صفر وظيفة (غالبًا الـ token غلط): {', '.join(empty)}")
+        print(f"⚠️  رجّعوا صفر وظيفة: {', '.join(empty)}")
     if failed:
         print(f"❌ فشلوا: {', '.join(failed)}")
 
     if args.verify:
-        print("\n(--verify: مفيش حفظ)")
+        print("(--verify: مفيش حفظ)")
         return 1 if failed else 0
 
     if args.dry_run:
-        print("\n(--dry-run: مفيش حفظ) — أول 10:")
+        print("(--dry-run: مفيش حفظ) — أول 10:")
         for j in jobs[:10]:
-            print(f"   · {j.company_name} — {j.title} [{j.location or '—'}] ({j.remote_type})")
+            print(f"   · {j.company_name} — {j.title} [{j.location or '—'}]")
         return 0
 
-    client = get_client()
     started = datetime.now(timezone.utc)
 
     alerts = check_health(client, report)
     if alerts:
-        print("\n🚨 مصادر نزلت فجأة مقارنة بآخر تشغيلة:")
+        print("🚨 مصادر نزلت فجأة مقارنة بآخر تشغيلة:")
         for a in alerts:
             print(f"   · {a}")
 
@@ -213,11 +240,26 @@ def main() -> int:
         traceback.print_exc()
         return 1
 
-    print(f"\n🆕 {len(new)} وظيفة جديدة اتحفظت")
-    for j in new[:20]:
-        print(f"   · {j.company_name} — {j.title} [{j.location or '—'}] ({j.remote_type})")
-    if len(new) > 20:
-        print(f"   … و{len(new) - 20} كمان")
+    print()
+    print(f"🆕 {len(new)} وظيفة جديدة اتحفظت")
+    for j in new[:15]:
+        print(f"   · {j.company_name} — {j.title} [{j.location or '—'}]")
+    if len(new) > 15:
+        print(f"   … و{len(new) - 15} كمان")
+
+    # الاكتشاف بعد الحفظ عن قصد: الوظايف أهم من توسيع السجل. لو الاكتشاف
+    # وقع أو خد وقت، اللي اتسحب يبقى في الداتابيز بالفعل.
+    found: dict = {}
+    if not args.no_discover:
+        agg = [j for j in jobs if j.ats in AGG_SOURCES]
+        if agg:
+            try:
+                found = discovery.discover(client, agg)
+                print()
+                print(f"🔎 اكتشاف: {found['candidates']} اسم جديد · "
+                      f"جرّبت {found['tried']} · لقيت {found['resolved']} · اتسجّل {found['written']}")
+            except Exception as exc:
+                print(f"(الاكتشاف وقع — {type(exc).__name__}: {exc})")
 
     try:
         client.table("agent_runs").insert({
@@ -227,14 +269,14 @@ def main() -> int:
             "status": "failed" if ok == 0 else ("partial" if (failed or alerts) else "ok"),
             "items_seen": len(jobs),
             "items_new": len(new),
-            "detail": {"sources": report, "alerts": alerts},
+            "detail": {"sources": report, "alerts": alerts, "discovery": found},
         }).execute()
     except Exception as exc:
         # تسجيل التشغيلة مش أهم من الشغل نفسه — الوظايف اتحفظت بالفعل.
         print(f"(تحذير: مقدرتش أسجّل التشغيلة — {exc})")
 
-    # الخروج بخطأ لما كل المصادر تقع. GitHub Actions بيبعتلك إيميل
-    # على الفشل — فده أرخص تنبيه ممكن، من غير أي بنية تحتية.
+    # الخروج بخطأ لما كل المصادر تقع. GitHub Actions بيبعتلك إيميل على
+    # الفشل — أرخص تنبيه ممكن، من غير أي بنية تحتية.
     return 1 if ok == 0 else 0
 
 
