@@ -133,3 +133,27 @@ def test_thresholds_are_sane():
     assert 0 <= notify.MIN_SCORE <= 100
     # من غير سقف، أول تشغيلة بعد تقييم كبير بتبعت عشرات الرسايل مرة واحدة
     assert 1 <= notify.MAX_PER_RUN <= 20
+
+
+# ── جمع الإعلان الواحد المنشور في كذا مدينة ─────────────────────────────
+
+def test_poster_key_ignores_location():
+    """
+    نفس الإعلان في 3 مدن = 3 صفوف في jobs (مقصود، عشان مانضيّعش
+    وظيفة في الرياض)، بس **رسالة واحدة** في تليجرام.
+    """
+    import re as _re
+
+    def poster(j):
+        return (str(j.get("company_name") or "").strip().lower(),
+                _re.sub(r"[\s\W]+", " ", str(j.get("title") or "").lower()).strip())
+
+    a = {"company_name": "Salesforge", "title": "Senior Backend Engineer",
+         "location": "Berlin"}
+    b = {"company_name": "Salesforge", "title": "Senior Backend Engineer",
+         "location": "Lisbon"}
+    c = {"company_name": "Salesforge", "title": "Data Engineer",
+         "location": "Berlin"}
+
+    assert poster(a) == poster(b)      # نفس الإعلان، مدينة مختلفة
+    assert poster(a) != poster(c)      # وظيفة تانية فعلاً

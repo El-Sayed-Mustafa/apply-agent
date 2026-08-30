@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import time
 from datetime import datetime, timezone
 
@@ -55,16 +56,43 @@ def unsent(db, limit: int) -> list[dict]:
             db.table("deliveries").select("job_id")
             .eq("channel", "telegram").execute().data}
 
-    fresh = [r for r in rows if r["job_id"] not in sent][:limit]
+    fresh = [r for r in rows if r["job_id"] not in sent]
     if not fresh:
         return []
 
-    jobs = {j["id"]: j for j in db.table("jobs")
-            .select("id,company_name,title,location,remote_type,url")
-            .in_("id", [r["job_id"] for r in fresh]).execute().data}
+    # كل الوظايف — المتبعتة والجديدة — عشان نعرف اللي إعلانه اتبعت قبل
+    # كده في مدينة تانية.
+    ids = [r["job_id"] for r in fresh] + list(sent)
+    jobs = {}
+    for i in range(0, len(ids), 200):
+        jobs |= {j["id"]: j for j in db.table("jobs")
+                 .select("id,company_name,title,location,remote_type,url")
+                 .in_("id", ids[i:i + 200]).execute().data}
 
-    return [{"job": jobs[r["job_id"]], "score": r}
-            for r in fresh if r["job_id"] in jobs]
+    # الشركة + العنوان = نفس الإعلان، حتى لو المدينة مختلفة.
+    #
+    # التخزين والإرسال قرارين مختلفين عن قصد: الموقع داخل في البصمة
+    # عشان مانضيّعش وظيفة في الرياض وواحدة في دبي — لكن إنت مش عايز
+    # 3 رسايل لنفس الإعلان. الجمع بيحصل هنا، مش في التخزين.
+    def poster(j: dict) -> tuple[str, str]:
+        return (str(j.get("company_name") or "").strip().lower(),
+                re.sub(r"[\s\W]+", " ", str(j.get("title") or "").lower()).strip())
+
+    seen = {poster(jobs[i]) for i in sent if i in jobs}
+
+    out = []
+    for r in fresh:
+        job = jobs.get(r["job_id"])
+        if not job:
+            continue
+        key = poster(job)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"job": job, "score": r})
+        if len(out) >= limit:
+            break
+    return out
 
 
 def deliver(db, items: list[dict], token: str, chat_id: str) -> dict:
