@@ -131,54 +131,70 @@ def _projects(cv: dict, picked: dict, order: dict, bullets: dict) -> str:
 
 
 def _skills(cv: dict) -> str:
+    """
+    عمود واحد، واللابل جوّه نفس تدفق النص.
+
+    مرّينا على شكلين وقعوا في نفس الفخ:
+      · grid من عمودين  → الاستخراج بيلحم اليمين بالشمال سطر بسطر
+      · لابل في عمود جنبه → اللابل نفسه بيتلف ("Automation &" /
+        "Scraping") فيتلحم بالقيم
+
+    الحل: كل مجموعة فقرة واحدة، اللابل أول الكلام. الاستخراج بيطلع
+    سطر نضيف مهما كان الطول.
+    """
     skills = {k: v for k, v in (cv.get("skills") or {}).items() if v}
     if not skills:
         return ""
-    cells = "".join(
-        f"<div><dt>{esc(k.replace('_', ' ').title())}</dt>"
-        f"<dd>{esc(', '.join(str(x) for x in v))}</dd></div>"
+    rows = "".join(
+        f'<div class="srow"><b class="slabel">{esc(k)}</b>&nbsp;&nbsp;'
+        f'{esc(", ".join(str(x) for x in v))}</div>'
         for k, v in skills.items())
-    return f'<section><h2>Skills</h2><dl class="skills">{cells}</dl></section>'
+    return f'<section><h2>Skills</h2><div class="skills">{rows}</div></section>'
 
 
-def _tail(cv: dict) -> str:
-    """التعليم على الشمال، الشهادات واللغات على اليمين — توفير مساحة."""
-    edu = []
+def _education(cv: dict) -> str:
+    rows = []
     for e in (cv.get("education") or []):
-        edu.append(
+        rows.append(
             '<div class="entry">'
             f'<div><span class="what">{esc(e.get("degree"))}</span>'
             f'<span class="where">, {esc(e.get("school"))}</span></div>'
             f'<div class="when">{esc(e.get("period"))}</div></div>')
-        line = " · ".join(filter(None, [e.get("department"), e.get("focus")]))
-        if line:
-            edu.append(f'<div class="stack">{esc(line)}</div>')
-        if e.get("project_short"):
-            edu.append(f"<ul><li>{emphasise(e['project_short'])}</li></ul>")
+        tail = " · ".join(filter(None, [e.get("department"),
+                                        e.get("project_short")]))
+        if tail:
+            rows.append(f'<div class="inline">{emphasise(tail)}</div>')
+    return ("<section><h2>Education</h2>" + "".join(rows) + "</section>"
+            if rows else "")
 
-    certs = []
+
+def _certificates(cv: dict) -> str:
+    """
+    كلهم في سطر واحد مفصولين بنقطة.
+
+    قايمة نقط بتاخد 4 أسطر مقابل صفر معلومة زيادة — والمساحة دي
+    الإنجازات أولى بيها.
+    """
+    items = []
     for c in (cv.get("certificates") or []):
         if isinstance(c, str):
-            certs.append(f"<li>{esc(c)}</li>")
+            items.append(esc(c))
             continue
-        certs.append(
-            f'<li>{link(c.get("name"), c.get("url"), "cert")}'
-            + (f'<span class="by"> — {esc(c["issuer"])}</span>'
-               if c.get("issuer") else "") + "</li>")
+        items.append(link(c.get("name"), c.get("url"))
+                     + (f'<span class="by"> — {esc(c["issuer"])}</span>'
+                        if c.get("issuer") else ""))
+    if not items:
+        return ""
+    body = SEP.join(items)
+    return f'<section><h2>Certificates</h2><div class="inline">{body}</div></section>'
 
-    langs = " · ".join(str(x) for x in
-                       (cv.get("profile") or {}).get("languages") or [])
 
-    left = ("<div><h2>Education</h2>" + "".join(edu) + "</div>") if edu else "<div></div>"
-    right = "<div>"
-    if certs:
-        right += f'<h2>Certificates</h2><ul class="certs">{"".join(certs)}</ul>'
-    if langs:
-        right += ('<h2 style="margin-top:2.6mm">Languages</h2>'
-                  f'<div class="langs">{esc(langs)}</div>')
-    right += "</div>"
-
-    return f'<section class="tail">{left}{right}</section>'
+def _languages(cv: dict) -> str:
+    langs = (cv.get("profile") or {}).get("languages") or []
+    if not langs:
+        return ""
+    body = SEP.join(esc(x) for x in langs)
+    return f'<section><h2>Languages</h2><div class="inline">{body}</div></section>'
 
 
 # ── البناء ──────────────────────────────────────────────────────────────
@@ -204,7 +220,9 @@ def build_html(cv: dict, bullets: dict, chosen: list[str],
     body += _experience(cv, picked, order, bullets)
     body += _projects(cv, picked, order, bullets)
     body += _skills(cv)
-    body += _tail(cv)
+    body += _education(cv)
+    body += _certificates(cv)
+    body += _languages(cv)
 
     return (_template()
             .replace("__NAME__", esc(contact.get("name")))

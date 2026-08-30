@@ -41,26 +41,27 @@ profile:
 
   # النسخة اللي بتتحط في السيرة — سطرين بالظبط عشان الصفحة الواحدة
   summary_short: >
-    AI & Automation Engineer who ships production LLM and automation systems
-    end to end — backend, data, retrieval, and the integrations between them.
-    Owns delivery from vague requirements to systems that run unattended.
+    AI & Automation Engineer building LLM agents, backend services and data
+    pipelines that run unattended in production — Python, FastAPI, Supabase,
+    and the integrations between them.
 
 # ── المهارات ───────────────────────────────────────────────────────────
 
+# 4 مجموعات بس. 7 مجموعات كانت بتشتّت العين وبتاخد ثلث الصفحة —
+# والـ recruiter بيمسح المهارات في ثانيتين، مش بيقراها.
 skills:
-  python_backend:  [Python, FastAPI, "REST APIs", Authentication, Webhooks]
-  automation:      [Playwright, Selenium, BeautifulSoup, "Google Apps Script",
-                    "Data pipelines", "Resumable workflows"]
-  databases:       [PostgreSQL, Supabase, SQL, SQLite, Pandas, NumPy]
-  ai_ml:           ["LLM APIs", "RAG", "AI agents", "Prompt engineering",
-                    Ollama, Whisper, LightGBM, "scikit-learn", NLP,
-                    "Model evaluation", "Structured output"]
-  integrations:    ["Amazon SP-API", "eBay API", "Google Workspace APIs",
-                    "Green API", "Telegram Bots", "Solana APIs"]
-  business_systems: ["CRM platforms", "Inventory & pricing systems",
-                     "Role-based access control", "Audit history",
-                     "Operational dashboards"]
-  other:           [Git, Docker, Streamlit, "React/TypeScript", Tauri, Linux]
+  Backend & APIs:
+    [Python, FastAPI, "REST APIs", Webhooks, Authentication,
+     PostgreSQL, Supabase, SQL, SQLite]
+  AI & LLM:
+    ["LLM APIs", RAG, "AI agents", "Prompt engineering", "Structured output",
+     Ollama, Whisper, LightGBM, "scikit-learn", "Model evaluation", NLP]
+  Automation & Scraping:
+    [Playwright, Selenium, BeautifulSoup, "Google Apps Script",
+     "Resumable workflows", "Data pipelines", "Amazon SP-API", "eBay API"]
+  Data & Platforms:
+    [Pandas, NumPy, "ETL", Docker, Git, Linux, Streamlit,
+     "Google Workspace APIs", "Telegram Bots"]
 
 # ⚠️ اللي مش عندك. المقيّم بيستخدمها عشان مايبالغش.
 not_experienced_with:
