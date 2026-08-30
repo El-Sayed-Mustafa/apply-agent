@@ -147,3 +147,58 @@ def test_pacing_is_random_not_fixed():
         _t.sleep = orig
     assert len(set(calls)) > 8, "التباعد مش عشوائي كفاية"
     assert all(2 <= c <= 7 for c in calls)
+
+
+# ── تحليل كرت الشخص ─────────────────────────────────────────────────────
+
+def test_parse_card_skips_connection_noise():
+    """
+    الشكل الحقيقي من الصفحة:
+        Akram Ibrahem | (فاضي) | 2nd degree connection | · 2nd | Fincrime...
+
+    أول نسخة كانت بتاخد أول سطرين، فالمسمى كان بيطلع
+    "2nd degree connection" وكل التصنيف بيبوظ — كل الناس بتترفض.
+    """
+    name, headline = people.parse_card(
+        ["Akram Ibrahem , CFE", "", "2nd degree connection", "· 2nd",
+         "Fincrime & Compliance Lead"])
+    assert name == "Akram Ibrahem , CFE"
+    assert headline == "Fincrime & Compliance Lead"
+
+
+def test_headline_does_not_absorb_the_next_person():
+    """
+    الكرت أحيانًا بيلمّ اسم اللي بعده. ضم سطرين كان بيطلّع
+    "Software Engineer · Ahmed Abulkhair, Nora ..." — أسماء ناس
+    تانيين جوّه مسمى شخص.
+    """
+    name, headline = people.parse_card(
+        ["Yousef Khaled", "· 2nd", "Software Engineer", "Ahmed Abulkhair, Nora"])
+    assert headline == "Software Engineer"
+    assert "Ahmed" not in headline
+
+
+def test_parse_card_real_engineer():
+    name, headline = people.parse_card(
+        ["Mohamed Alkaoud", "· 2nd", "AI | NLP | Data Science"])
+    assert name == "Mohamed Alkaoud"
+    assert people.classify(headline) == "peer"
+
+
+@pytest.mark.parametrize("noise", [
+    "2nd", "· 3rd", "1st degree connection", "View profile",
+    "Message", "Connect", "  ", "—",
+])
+def test_noise_lines_dropped(noise):
+    name, headline = people.parse_card(["Real Name", noise, "Data Engineer"])
+    assert name == "Real Name" and "Data Engineer" in headline
+
+
+def test_parse_card_empty():
+    assert people.parse_card([]) == ("", "")
+    assert people.parse_card(["", "  "]) == ("", "")
+
+
+def test_name_not_repeated_in_headline():
+    name, headline = people.parse_card(["Sara Ali", "Sara Ali", "ML Engineer"])
+    assert name == "Sara Ali" and headline == "ML Engineer"

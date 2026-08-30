@@ -80,47 +80,102 @@ def clean_url(url: str) -> str:
 
 # ── السحب من صفحة الشركة ────────────────────────────────────────────────
 
-def company_people(page, slug: str, want: int = 25) -> list[dict]:
+# سطور بتظهر في كل كرت ومالهاش علاقة بالمسمى الوظيفي
+NOISE = re.compile(
+    r"^(?:·\s*)?\d+(?:st|nd|rd|th)(?:\s+degree(?:\s+connection)?)?$|"
+    r"^view\b|^message$|^connect$|^follow$|^\W*$", re.I)
+
+# كرت الشخص في تاب People. لو LinkedIn غيّر الكلاس، بنرجع لكل
+# لينكات /in/ ونفلتر — أبطأ شوية بس مش بيقع.
+JS_PEOPLE = """() => {
+  const cards = document.querySelectorAll(
+    '.org-people-profile-card__profile-card-spacing, li.grid');
+  const nodes = cards.length ? cards : document.querySelectorAll('li, div');
+  const out = [];
+  const seen = new Set();
+  nodes.forEach(card => {
+    const a = card.querySelector('a[href*="/in/"]');
+    if (!a) return;
+    const href = (a.getAttribute('href') || '').split('?')[0];
+    if (!href || seen.has(href)) return;
+    const text = (card.innerText || '').trim();
+    // كرت الشخص قصير. الحاويات الكبيرة بتلمّ كذا كرت مع بعض.
+    if (!text || text.length > 400) return;
+    seen.add(href);
+    out.push({ href: href, lines: text.split('\\n') });
+  });
+  return out;
+}"""
+
+
+def parse_card(lines: list[str]) -> tuple[str, str]:
+    """
+    (الاسم، المسمى) من نص الكرت.
+
+    شكل الكرت: الاسم، وبعده سطور زي "2nd degree connection" و"· 2nd"
+    ملهاش علاقة، وبعدين المسمى. لو أخدنا أول سطرين زي ما كنت عامل،
+    المسمى بيطلع "2nd degree connection" وكل التصنيف بيبوظ.
+    """
+    clean = [x.strip() for x in lines if x.strip() and not NOISE.match(x.strip())]
+    if not clean:
+        return "", ""
+    name = clean[0]
+    rest = [x for x in clean[1:] if x.lower() != name.lower()]
+    if not rest:
+        return name[:120], ""
+    # سطر واحد بس. ضم سطرين كان بيلزق اسم الشخص اللي بعده في المسمى:
+    #   "Software Engineer · Ahmed Abulkhair, Nora ..."
+    # وده بيبوّظ التصنيف ويخلي الأسماء تتسرّب في بيانات غيرها.
+    headline = rest[0]
+    if len(headline) < 16 and len(rest) > 1:
+        headline = f"{headline} · {rest[1]}"
+    return name[:120], headline[:200]
+
+
+def company_people(page, slug: str, want: int = 25,
+                   keywords: str = "") -> list[dict]:
     """
     اسحب ناس من تاب People بتاع شركة.
 
-    بيمرّر لتحت شوية عشان الصفحة تحمّل، وبيسحب اللي ظهر. مش بيحاول
-    يوصل لآخر القايمة — دي مش سرعة، دي هدوء.
+    keywords بيستخدم مربع البحث الجوّاني للتاب. ده **مش** البحث العام
+    اللي عليه السقف التجاري — ده فلترة داخل صفحة الشركة، ومفتوحة.
+
+    وبيهم عمليًا: العرض الافتراضي بيطلّع مهندسين، وناس التوظيف —
+    اللي هما أولوية أولى — مش بيظهروا غير لما تدوّر عليهم بالاسم.
     """
-    page.goto(f"{BASE}/company/{slug}/people/",
-              wait_until="domcontentloaded", timeout=30_000)
-    human_pause(3, 6)
+    url = f"{BASE}/company/{slug}/people/"
+    if keywords:
+        from urllib.parse import quote
+        url += f"?keywords={quote(keywords)}"
+    page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+    human_pause(5, 9)
     guard(page)
 
     seen: dict[str, dict] = {}
-    for _ in range(4):
-        cards = page.query_selector_all(
-            'a[href*="/in/"]:has(img), a[data-test-app-aware-link][href*="/in/"]')
-        for a in cards:
-            try:
-                href = a.get_attribute("href") or ""
-                key = profile_key(href)
-                if not key or key in seen:
-                    continue
-                # النص حوالين اللينك فيه الاسم والمسمى
-                block = a.evaluate(
-                    "e => (e.closest('li') || e.closest('div'))?.innerText || ''")
-                lines = [x.strip() for x in (block or "").split("\n") if x.strip()]
-                if not lines:
-                    continue
-                seen[key] = {
-                    "profile_key": key,
-                    "profile_url": clean_url(href),
-                    "name": lines[0][:120],
-                    "headline": " ".join(lines[1:3])[:200],
-                }
-            except Exception:
+    for _ in range(5):
+        try:
+            cards = page.evaluate(JS_PEOPLE)
+        except Exception:
+            cards = []
+
+        for c in cards:
+            key = profile_key(c["href"])
+            if not key or key in seen:
                 continue
+            name, headline = parse_card(c["lines"])
+            if not name or "followers" in headline.lower():
+                continue          # ده كرت شركة مش شخص
+            seen[key] = {
+                "profile_key": key,
+                "profile_url": clean_url(c["href"]),
+                "name": name,
+                "headline": headline,
+            }
 
         if len(seen) >= want:
             break
-        page.mouse.wheel(0, 1400)
-        human_pause(2, 4)
+        page.mouse.wheel(0, 1600)
+        human_pause(2.5, 4.5)
         guard(page)
 
     return list(seen.values())[:want]

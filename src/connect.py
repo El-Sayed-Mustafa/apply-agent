@@ -78,28 +78,35 @@ def gather(page, db, companies: list[dict], need: int) -> list[dict]:
     seen = known_keys(db)
     out: list[dict] = []
 
+    # ناس التوظيف الأول: العرض الافتراضي للتاب بيطلّع مهندسين، وهما
+    # مش بيظهروا غير لما تدوّر عليهم بالاسم. وهما أولوية أولى — دول
+    # اللي بيقروا تقديمك فعلاً.
+    passes = [("recruiter", 12), ("talent", 10), ("", 25)]
+
     for c in companies:
         if len(out) >= need * 3:      # نجمع أكتر من اللازم عشان نختار الأحسن
             break
-        try:
-            found = people.company_people(page, c["linkedin_slug"], want=25)
-        except Blocked:
-            raise
-        except Exception as exc:
-            print(f"   (تخطّينا {c['name']} — {type(exc).__name__})")
-            continue
-
-        for p in found:
-            if p["profile_key"] in seen:
+        for kw, want in passes:
+            try:
+                found = people.company_people(
+                    page, c["linkedin_slug"], want=want, keywords=kw)
+            except Blocked:
+                raise
+            except Exception as exc:
+                print(f"   (تخطّينا {c['name']}/{kw or 'all'} — {type(exc).__name__})")
                 continue
-            kind = people.classify(p["headline"])
-            if not kind:
-                continue
-            seen.add(p["profile_key"])
-            out.append(p | {"company": c["name"], "kind": kind,
-                            "source": f"company:{c['linkedin_slug']}"})
 
-        session.human_pause(4, 9)
+            for p in found:
+                if p["profile_key"] in seen:
+                    continue
+                kind = people.classify(p["headline"])
+                if not kind:
+                    continue
+                seen.add(p["profile_key"])
+                out.append(p | {"company": c["name"], "kind": kind,
+                                "source": f"company:{c['linkedin_slug']}"})
+
+            session.human_pause(4, 9)
 
     out.sort(key=lambda p: people.PRIORITY.get(p["kind"], 9))
     return out
