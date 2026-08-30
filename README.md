@@ -190,3 +190,22 @@ python -m src.connect --stats  # الاستهلاك
 الافتراضي **معاينة** مش إرسال. الدعوة فعل ما بيترجعش.
 
 للتشغيل التلقائي: Task Scheduler كل ساعتين مع `--send`.
+
+### التشغيل التلقائي (Windows)
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts\install-task.ps1
+```
+
+بتسجّل مهمة في Task Scheduler: **4 مرات في اليوم + تأخير عشوائي لحد 40 دقيقة.**
+
+التأخير العشوائي مقصود — التشغيل الساعة 9:00 بالظبط كل يوم إيقاع آلة.
+
+السجل في `logs/connect.log`. للإيقاف:
+
+```bash
+powershell -Command "Disable-ScheduledTask -TaskName ApplyAgent-LinkedIn"
+```
+
+> ملحوظة: السكريبت بيقف **قبل** ما يفتح المتصفح لو الميزانية خلصت،
+> فالتشغيلات الزيادة بتخلص في ثانية من غير أي أثر.
