@@ -95,7 +95,51 @@ def matches_role(title: str) -> bool:
     t = title or ""
     if any(p.search(t) for p in _compiled()["exclude"]):
         return False
+    if _seniority().get("exclude_senior_in_title") and _SENIOR_TITLE.search(t):
+        return False
     return any(p.search(t) for p in _compiled()["include"])
+
+
+# ── الأقدمية ────────────────────────────────────────────────────────────
+
+_SENIOR_TITLE = re.compile(r"\b(?:senior|sr\.?)\b", re.I)
+
+# "5+ years experience" · "minimum of 7 years" · "at least 8 years"
+# · "5-8 years of relevant experience"
+_YEARS = re.compile(
+    r"(?:(?:at\s+least|minimum\s+(?:of\s+)?|min\.?\s*)\s*)?"
+    r"(\d{1,2})\s*(?:\+|plus)?\s*(?:-\s*\d{1,2}\s*)?"
+    r"(?:\+\s*)?years?"
+    r"(?:\s+(?:of\s+)?(?:\w+\s+){0,3}?experience|\s+experience|\s*\+)",
+    re.I,
+)
+
+
+@lru_cache(maxsize=1)
+def _seniority() -> dict:
+    return _policy().get("seniority", {}) or {}
+
+
+def required_years(text: str) -> int | None:
+    """
+    أعلى عدد سنين مطلوب في الإعلان.
+
+    بناخد الأعلى مش الأقل: إعلان بيقول "3 years in Python, 7 years in
+    distributed systems" هو فعليًا وظيفة 7 سنين.
+    """
+    found = [int(m) for m in _YEARS.findall((text or "")[:MAX_TEXT])
+             if 0 < int(m) <= 30]
+    return max(found) if found else None
+
+
+def is_too_senior(text: str) -> tuple[bool, str]:
+    cap = _seniority().get("max_years_required")
+    if not cap:
+        return False, ""
+    y = required_years(text)
+    if y is not None and y >= cap:
+        return True, f"بيطلب {y} سنين خبرة"
+    return False, ""
 
 
 def evaluate(job) -> Verdict:
@@ -121,6 +165,11 @@ def evaluate(job) -> Verdict:
 
     if not role_ok:
         return out(False, "الدور مش مناسب")
+
+    too_senior, why = is_too_senior(job.description)
+    if too_senior:
+        return out(False, why)
+
     if elig == "local_only":
         return out(False, f"محلي فقط: {reason}")
     if is_remote:

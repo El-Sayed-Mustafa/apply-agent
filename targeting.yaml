@@ -115,3 +115,25 @@ roles:
     - "account\\s+executive"
     - "\\bintern\\b"
     - "\\b(?:director|vp|vice\\s+president|head\\s+of)\\b"
+
+    # ── أدوار فوق مستواك دلوقتي ──
+    # Staff و Principal و Lead دايمًا بتعني 8+ سنين — مفيش استثناءات.
+    - "\\b(?:staff|principal|distinguished|architect)\\b"
+    - "\\b(?:tech\\s+)?lead\\b"
+    - "\\bmanager\\b"
+
+
+# ── مستوى الأقدمية ─────────────────────────────────────────────────────
+
+seniority:
+  # عندك 3 سنين. وظيفة بتطلب 5+ = مش دورك.
+  # الرقم ده بيتقرا من نص الإعلان، مش من العنوان — عشان ده الحقيقة.
+  max_years_required: 5
+
+  # كلمة "Senior" في العنوان لوحدها مش دليل: شركات بتسميها لدور 3 سنين
+  # وشركات تانية بتقصد 8. لو خلّيته true، بيتشال حتى لو الإعلان بيطلب
+  # 3 سنين بس — وده هيشيل معاه فرص حقيقية زي Senior AI Engineer في Mozn.
+  #
+  # false = القرار بيتاخد من عدد السنين المكتوب في الإعلان (الأدق)
+  # true  = أي "Senior" في العنوان تترمي فورًا
+  exclude_senior_in_title: true

@@ -101,3 +101,19 @@ def test_retry_window_is_not_hourly():
     الأسماء الفاشلة كل يوم، والأسماء الجديدة مش هتوصل لها أبدًا.
     """
     assert discovery.RETRY_AFTER_DAYS >= 7
+
+
+# ── فلتر الصلة: الفرق بين حلقة بتكبر وحلقة بتنفجر ───────────────────────
+
+def test_only_relevant_companies_get_added():
+    """
+    الشركة بتتضاف بس لو الإعلان اللي دلّنا عليها في مجالك.
+
+    من غير ده: شركة تجارة سلع ألمانية ظهرت من إعلان
+    "Werkstudent Controlling" بتضيف بوردها كامل — 200 وظيفة مالهاش لازمة.
+    قيسناها فعليًا: 2400 وظيفة جديدة في تشغيلة واحدة، وبتزيد كل ساعة.
+    """
+    from src import targeting
+    assert targeting.matches_role("AI Engineer")
+    assert not targeting.matches_role("Werkstudent Controlling")
+    assert not targeting.matches_role("Key Account Manager")

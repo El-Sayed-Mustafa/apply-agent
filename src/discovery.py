@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
+from . import targeting
 from .adapters import HEADERS
 
 # نجرّب الأنظمة دي بالترتيب ده لكل صيغة اسم
@@ -196,11 +197,27 @@ def discover(client, jobs, budget: int = MAX_PER_RUN) -> dict:
     """
     seen = known_names(client)
     fresh: dict[str, str] = {}
+    skipped = 0
+
     for j in jobs:
         k = normalise(j.company_name)
-        if k and k not in seen and k not in fresh and is_plausible(j.company_name):
-            fresh[k] = j.ats
-            seen.add(k)
+        if not k or k in seen or k in fresh or not is_plausible(j.company_name):
+            continue
+
+        # الفلتر ده هو الفرق بين حلقة بتكبر وحلقة بتنفجر.
+        #
+        # من غيره بنضيف أي شركة نقدر نحل الـ token بتاعها — وكل شركة
+        # بتجيب بوردها كامل. شركة تجارة سلع ألمانية ظهرت من إعلان
+        # "Werkstudent Controlling" بتضيف 200 وظيفة مالهاش أي لازمة.
+        #
+        # قيسناها: من غير الفلتر، التشغيلة كانت بتضيف 2400 وظيفة
+        # وبتزيد كل ساعة — كان هياكل الحد المجاني في أسبوعين.
+        if not targeting.matches_role(j.title):
+            skipped += 1
+            continue
+
+        fresh[k] = j.ats
+        seen.add(k)
 
     names = [(n, src) for n, src in fresh.items()][:budget]
 
@@ -218,5 +235,5 @@ def discover(client, jobs, budget: int = MAX_PER_RUN) -> dict:
 
     # written بيتسجّل عن قصد: لو الكتابة فشلت، الرقم ده بيفضح الفرق
     # بدل ما نقول "لقيت 5" والجدول فاضي.
-    return {"candidates": len(fresh), "tried": len(names),
+    return {"candidates": len(fresh), "tried": len(names), "skipped": skipped,
             "resolved": resolved, "written": written}

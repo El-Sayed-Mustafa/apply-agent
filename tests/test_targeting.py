@@ -103,7 +103,7 @@ def test_no_location():
 # ── الأدوار ─────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("title", [
-    "AI Engineer", "Senior Machine Learning Engineer", "Data Platform Engineer",
+    "AI Engineer", "Machine Learning Engineer", "Data Platform Engineer",
     "Automation Engineer", "Forward Deployed Engineer", "Backend Engineer",
 ])
 def test_relevant_roles(title):
@@ -169,3 +169,72 @@ def test_unknown_eligibility_still_passes():
     """
     v = targeting.evaluate(job(desc="Build great software."))
     assert v.eligible and v.eligibility == "unknown"
+
+
+# ── الأقدمية ────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("text,years", [
+    ("We need 5+ years of experience.", 5),
+    ("Minimum of 7 years experience required.", 7),
+    ("At least 8 years of professional experience.", 8),
+    ("3-5 years of relevant experience", 3),
+    ("2 years experience", 2),
+])
+def test_years_extracted(text, years):
+    assert targeting.required_years(text) == years
+
+
+def test_takes_the_highest_requirement():
+    """
+    "3 years Python, 8 years distributed systems" هي فعليًا وظيفة
+    8 سنين. لو أخدنا الأقل، هنقدّم على وظايف مالناش فيها.
+    """
+    t = "3+ years of Python and 8+ years of experience with distributed systems."
+    assert targeting.required_years(t) == 8
+
+
+def test_no_years_mentioned():
+    assert targeting.required_years("Build cool things with Python.") is None
+
+
+def test_absurd_numbers_ignored():
+    """'50 years of combined team experience' مش متطلب عليك."""
+    assert targeting.required_years("Our team has 50 years experience") is None
+
+
+@pytest.mark.parametrize("text,blocked", [
+    ("We require 8+ years of experience.", True),
+    ("5 years experience needed.", True),
+    ("2+ years experience is enough.", False),
+    ("3 years of experience.", False),
+    ("Experience with Python required.", False),
+])
+def test_too_senior(text, blocked):
+    assert targeting.is_too_senior(text)[0] is blocked
+
+
+def test_senior_title_excluded():
+    """المفتاح exclude_senior_in_title شغال."""
+    assert not targeting.matches_role("Senior AI Engineer")
+    assert not targeting.matches_role("Sr. Data Engineer")
+
+
+@pytest.mark.parametrize("title", [
+    "Staff Software Engineer", "Principal AI Engineer",
+    "Engineering Manager", "Tech Lead, Data Platform",
+])
+def test_beyond_level_titles_excluded(title):
+    """Staff و Principal و Lead دايمًا 8+ سنين — مفيش استثناءات."""
+    assert not targeting.matches_role(title)
+
+
+def test_normal_titles_still_pass():
+    assert targeting.matches_role("AI Engineer")
+    assert targeting.matches_role("Data Engineer")
+    assert targeting.matches_role("Backend Engineer")
+
+
+def test_senior_job_rejected_end_to_end():
+    v = targeting.evaluate(job(title="AI Engineer",
+                               desc="We need 8+ years of experience."))
+    assert not v.eligible and "8 سنين" in v.reason
