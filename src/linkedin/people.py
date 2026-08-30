@@ -183,32 +183,71 @@ def company_people(page, slug: str, want: int = 25,
 
 # ── إرسال الدعوة ────────────────────────────────────────────────────────
 
+def name_tokens(name: str) -> set[str]:
+    """كلمات الاسم المميزة — للمقارنة، مش للعرض."""
+    words = re.findall(r"[\w؀-ۿ]{3,}", (name or "").lower())
+    return {w for w in words if w not in {"the", "dr", "eng", "mr", "ms", "mrs"}}
+
+
+def belongs_to(aria: str, target_name: str) -> bool:
+    """
+    هل الزرار ده بتاع الشخص اللي إحنا رايحينله؟
+
+    aria-label بيقول "Invite <الاسم> to connect". لو الاسم مختلف،
+    يبقى الزرار من قايمة جانبية مش من الملف المفتوح.
+
+    ده الحاجز اللي كان ناقص. من غيره، أول زرار دعوة في الصفحة كان
+    بيتضغط — وده بيبقى غالبًا في "أشخاص قد تعرفهم"، فالدعوة بتروح
+    لشخص محدش اختاره.
+    """
+    a, t = name_tokens(aria), name_tokens(target_name)
+    if not t:
+        return False
+    return bool(a & t)
+
+
 def invite(page, contact: dict) -> tuple[bool, str]:
     """
     ابعت دعوة من صفحة الشخص. رجّع (نجح، السبب).
 
     من غير رسالة — ده اللي إنت طلبته، وكمان الدعوات بالرسايل عليها
     سقف أقل بكتير على الحسابات المجانية.
+
+    الاسم بيتفحص قبل الضغط. لو الزرار مش بتاع الشخص المقصود، بنسيبه
+    ونعدّي — أحسن ما ندعو حد محدش اختاره.
     """
     page.goto(contact["profile_url"], wait_until="domcontentloaded",
               timeout=30_000)
     human_pause(3, 7)
     guard(page)
 
+    target = contact.get("name") or ""
     btn = None
-    for sel in ('button[aria-label^="Invite"]',
-                'main button:has-text("Connect")',
-                'button:has-text("Connect")'):
-        try:
-            el = page.query_selector(sel)
-            if el and el.is_visible():
-                btn = el
-                break
-        except Exception:
-            continue
+    wrong = ""
+
+    # بندوّر جوّه الملف الرئيسي بس. القايمة الجانبية ("أشخاص قد
+    # تعرفهم") فيها أزرار دعوة كمان، وهي أول حاجة بتتلقط لو دوّرنا
+    # في الصفحة كلها.
+    for scope in ("main section:first-of-type", "main .ph5", "main"):
+        for el in page.query_selector_all(f'{scope} button[aria-label*="onnect"], '
+                                          f'{scope} button[aria-label^="Invite"]'):
+            try:
+                if not el.is_visible():
+                    continue
+                aria = el.get_attribute("aria-label") or ""
+                if belongs_to(aria, target):
+                    btn = el
+                    break
+                wrong = aria[:60]
+            except Exception:
+                continue
+        if btn:
+            break
 
     if not btn:
-        # مفيش زرار Connect: يا إما متصلين أصلاً، يا إما الزرار جوّه More
+        if wrong:
+            # الحاجز اشتغل: لقينا زرار بس لشخص تاني
+            return False, f"الزرار لشخص تاني: {wrong}"
         return False, "مفيش زرار Connect"
 
     btn.click()

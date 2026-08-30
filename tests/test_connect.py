@@ -202,3 +202,62 @@ def test_parse_card_empty():
 def test_name_not_repeated_in_headline():
     name, headline = people.parse_card(["Sara Ali", "Sara Ali", "ML Engineer"])
     assert name == "Sara Ali" and headline == "ML Engineer"
+
+
+# ── الحاجز: الزرار لازم يبقى بتاع الشخص المقصود ─────────────────────────
+
+def test_button_must_belong_to_target():
+    """
+    الخلل اللي بعت دعوة لشخص محدش اختاره:
+
+        الهدف:       Albatul A.
+        الزرار لقاه: "Invite Ahmed Alrabraba to connect"
+
+    aria-label بيقول الاسم. لو مختلف، يبقى الزرار من القايمة الجانبية
+    ("أشخاص قد تعرفهم") مش من الملف المفتوح.
+    """
+    assert people.belongs_to("Invite Albatul Alharbi to connect", "Albatul A.")
+    assert not people.belongs_to("Invite Ahmed Alrabraba to connect", "Albatul A.")
+
+
+def test_belongs_to_needs_a_real_overlap():
+    assert not people.belongs_to("Invite Sara Ali to connect", "Mohamed Hassan")
+    assert people.belongs_to("Invite Mohamed Hassan to connect", "Mohamed Hassan")
+
+
+def test_belongs_to_ignores_titles():
+    """'Dr' و'Eng' مش أسماء — مايتحسبوش تطابق."""
+    assert not people.belongs_to("Invite Dr Ahmed to connect", "Dr Sara")
+
+
+@pytest.mark.parametrize("bad", ["", None, "   ", "A B"])
+def test_empty_target_never_matches(bad):
+    """
+    اسم فاضي أو من حروف مفردة = مانضغطش. الشك يوقف الفعل.
+    """
+    assert not people.belongs_to("Invite Someone to connect", bad)
+
+
+def test_arabic_names_supported():
+    assert people.belongs_to("دعوة محمد حسن للتواصل", "محمد حسن")
+
+
+# ── الحاجز بالعربي ──────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("text", [
+    "لاحظنا نشاط غير معتاد على حسابك",
+    "تم تقييد حسابك مؤقتًا",
+    "من فضلك تحقق من هويتك",
+    "لقد وصلت إلى الحد الأسبوعي للدعوات",
+])
+def test_arabic_warnings_stop_us(text):
+    """
+    واجهة الحساب عربي. حاجز بيدوّر على إنجليزي بس مش هيشوف التحذير —
+    يعني يفضل شغال وهو المفروض واقف. حماية على الورق وغايبة فعليًا.
+    """
+    with pytest.raises(session.Blocked):
+        session.guard(FakePage(body=text))
+
+
+def test_arabic_normal_page_passes():
+    session.guard(FakePage(body="الأشخاص في Mozn · ٢٤٠ موظف"))
