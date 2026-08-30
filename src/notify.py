@@ -95,6 +95,41 @@ def unsent(db, limit: int) -> list[dict]:
     return out
 
 
+def _tailored_cv(db, job: dict):
+    """
+    جهّز سيرة مظبوطة على الوظيفة دي. رجّع (الملف، الاسم، الملاحظة).
+
+    الفشل هنا مش قاتل: لو التظبيط وقع، الوظيفة لازم توصلك برضه —
+    من غير مرفق. وظيفة واصلة من غير CV أحسن من وظيفة مش واصلة.
+    """
+    key = os.getenv("GEMINI_API_KEY")
+    if not key or os.getenv("NOTIFY_NO_CV"):
+        return None, "", ""
+    try:
+        from google import genai
+        from . import render, tailor
+
+        client = genai.Client(api_key=key)
+        result, err = tailor.tailor(client, job)
+        if not result:
+            print(f"      (تظبيط فشل — {err[:70]})")
+            return None, "", ""
+
+        if result.dropped:
+            # معرّف مخترع. الحاجز شاله، بس ده يستاهل يتشاف —
+            # لو بقى متكرر يبقى الـ prompt محتاج تعديل.
+            print(f"      ⚠️ معرّفات مخترعة اتشالت: {result.dropped}")
+
+        bullets, _ = tailor.load_catalogue()
+        buf = render.build(tailor.context(), bullets,
+                           result.bullet_ids, result.headline)
+        return buf, render.filename(job), result
+
+    except Exception as exc:
+        print(f"      (تظبيط وقع — {type(exc).__name__}: {exc})"[:130])
+        return None, "", ""
+
+
 def deliver(db, items: list[dict], token: str, chat_id: str) -> dict:
     sent = failed = 0
     for i, item in enumerate(items):
@@ -102,9 +137,24 @@ def deliver(db, items: list[dict], token: str, chat_id: str) -> dict:
         text = telegram.format_job(job, score)
         row = {"job_id": job["id"], "channel": "telegram",
                "score_at_send": score.get("score_final")}
+
+        buf, fname, tailored = _tailored_cv(db, job)
+        if buf and tailored:
+            text += f"\n\n📄 <i>{telegram.esc(telegram.clip(tailored.note, 300))}</i>"
+
         try:
-            row["message_id"] = telegram.send_with_retry(
-                text, token, chat_id, markup=telegram.keyboard(job["id"]))
+            if buf:
+                row["message_id"] = telegram.send_document(
+                    buf, fname, text, token, chat_id,
+                    markup=telegram.keyboard(job["id"]))
+                # النقط المختارة بتتسجّل هنا — في deliveries مش applications.
+                # deliveries = إحنا بعتنا إيه · applications = إنت قررت إيه.
+                # لو كتبناها في applications، كل وظيفة اتبعتت هتبان كأنك
+                # قررت فيها حاجة — والجدول ده هو أساس القياس كله.
+                row["bullet_ids"] = tailored.bullet_ids
+            else:
+                row["message_id"] = telegram.send_with_retry(
+                    text, token, chat_id, markup=telegram.keyboard(job["id"]))
             sent += 1
             print(f"   ✅ {score['score_final']:>3} {job['company_name'][:16]:<18}"
                   f"{job['title'][:44]}")

@@ -12,3 +12,6 @@ __pycache__/
 spike/*.json
 spike/*.log
 !spike/data.yaml
+
+# مستندات متولّدة
+*.docx

@@ -200,3 +200,27 @@ def set_webhook(url: str, secret: str, token: str | None = None) -> dict:
 
 def webhook_info(token: str | None = None) -> dict:
     return call("getWebhookInfo", {}, token or _config()[0])
+
+
+def send_document(buf, filename: str, caption: str,
+                  token: str, chat_id: str, markup: dict | None = None) -> int:
+    """
+    ابعت ملف. الأزرار بتتحط على رسالة المستند نفسها — عشان يبقى فيه
+    رسالة واحدة للوظيفة، مش اتنين.
+    """
+    payload = {"chat_id": chat_id, "caption": caption[:1024], "parse_mode": "HTML"}
+    if markup:
+        import json as _json
+        payload["reply_markup"] = _json.dumps(markup)
+    r = requests.post(
+        API.format(token=token, method="sendDocument"),
+        data=payload,
+        files={"document": (filename, buf,
+                            "application/vnd.openxmlformats-officedocument"
+                            ".wordprocessingml.document")},
+        timeout=60,
+    )
+    data = r.json()
+    if not data.get("ok"):
+        raise RuntimeError(f"تليجرام رفض الملف: {data.get('description', '')[:200]}")
+    return data["result"]["message_id"]
