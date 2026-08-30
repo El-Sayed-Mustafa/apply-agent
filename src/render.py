@@ -242,31 +242,34 @@ def _education(cv: dict) -> str:
 
 def _certificates(cv: dict) -> str:
     """
-    كلهم في سطر واحد مفصولين بنقطة.
+    كل شهادة سطر لوحدها.
 
-    قايمة نقط بتاخد 4 أسطر مقابل صفر معلومة زيادة — والمساحة دي
-    الإنجازات أولى بيها.
+    النسخة اللي قبلها كانت سطر واحد مفصول بنقط — والفاصل بيختفي في
+    استخراج النص، فالشهادات بتلتزق: "DeepLearning.AI Advanced SQL".
+    السطر المستقل مبيلتبسش على أي مستخرِج.
     """
     items = []
     for c in (cv.get("certificates") or []):
         if isinstance(c, str):
-            items.append(esc(c))
+            items.append(f"<li>{esc(c)}</li>")
             continue
-        items.append(link(c.get("name"), c.get("url"))
-                     + (f'<span class="by"> — {esc(c["issuer"])}</span>'
-                        if c.get("issuer") else ""))
+        items.append(
+            f'<li>{link(c.get("name"), c.get("url"))}'
+            + (f'<span class="by"> — {esc(c["issuer"])}</span>'
+               if c.get("issuer") else "") + "</li>")
     if not items:
         return ""
-    body = SEP.join(items)
-    return f'<section><h2>Certificates</h2><div class="inline">{body}</div></section>'
+    return ('<section><h2>Certificates</h2>'
+            f'<ul class="tight">{"".join(items)}</ul></section>')
 
 
 def _languages(cv: dict) -> str:
     langs = (cv.get("profile") or {}).get("languages") or []
     if not langs:
         return ""
-    body = SEP.join(esc(x) for x in langs)
-    return f'<section><h2>Languages</h2><div class="inline">{body}</div></section>'
+    items = "".join(f"<li>{esc(x)}</li>" for x in langs)
+    return ('<section><h2>Languages</h2>'
+            f'<ul class="tight">{items}</ul></section>')
 
 
 # ── البناء ──────────────────────────────────────────────────────────────

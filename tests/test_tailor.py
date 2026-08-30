@@ -237,8 +237,7 @@ PROJ = {
 def test_project_capped_at_three():
     """مشروع بـ4 نقط والتاني بواحدة كان بيخلي التاني يبان ضعيف."""
     out = tailor.balance_projects(["p1a", "p1b", "p1c", "p1d", "p2a", "p2b"], PROJ)
-    assert out.count("p1d") == 0
-    assert len([x for x in out if x.startswith("p1")]) == 3
+    assert len([x for x in out if x.startswith("p1")]) == tailor.MAX_PER_PROJECT
     assert len([x for x in out if x.startswith("p2")]) == 2
 
 

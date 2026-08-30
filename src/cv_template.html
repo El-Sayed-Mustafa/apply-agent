@@ -43,6 +43,11 @@ body{
   font-family:'SS','Source Sans 3','Segoe UI',sans-serif;
   font-size:var(--fs); line-height:var(--lh); color:var(--soft);
   -webkit-font-smoothing:antialiased;
+  /* Chromium بيوزّع الأسطر عشان مايبقاش فيه سطر أخير بكلمة واحدة.
+     السطر اليتيم ده أوضح عيب بصري في السيرة، وبيحصل في أي فقرة
+     طولها شوية فوق السطر. */
+  text-wrap:pretty;
+  orphans:2; widows:2;
 }
 
 /* ── الترويسة ─────────────────────────────────────────────── */
@@ -115,6 +120,13 @@ b{ font-weight:600; color:var(--ink); }
 .inline .sep{ padding:0 1.6mm; opacity:.4; color:var(--muted); }
 .inline a{ color:var(--soft); text-decoration:none; }
 .by{ color:var(--muted); }
+
+/* قايمة مضغوطة للشهادات واللغات: كل عنصر سطر لوحده.
+   الفاصل النقطي كان بيختفي في الاستخراج فالعناصر تلتزق —
+   "DeepLearning.AI Advanced SQL". السطر المستقل مبيلتبسش. */
+ul.tight{ margin-top:.6mm; }
+ul.tight li{ margin-top:.35mm; }
+ul.tight a{ color:var(--soft); text-decoration:none; }
 </style>
 
 <header>

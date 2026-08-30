@@ -51,11 +51,12 @@ YOU MAY ONLY RETURN IDs FROM THIS LIST. Nothing else exists.
 
 RETURN TWO SEPARATE LISTS:
 
-`experience_ids` — 8 to 11 ids from the EXPERIENCE block, most relevant first.
-`project_ids`    — 5 or 6 ids drawn from exactly 2 or 3 DIFFERENT projects,
+`experience_ids` — 6 to 9 ids from the EXPERIENCE block, most relevant first.
+`project_ids`    — 6 to 9 ids drawn from **exactly 3 DIFFERENT projects**,
                    strongest project first, and **2 to 3 ids per project** so
-                   no project looks thinner than the others. Pick the projects
-                   that best prove this job's requirements, not the biggest.
+                   no project looks thinner than the others. Pick the three
+                   projects that best prove this job's requirements, not the
+                   biggest-sounding ones. Group each project's ids together.
 
 RULES:
 - Never invent an id. Never invent experience.
@@ -171,7 +172,8 @@ def validate(raw_ids, known: dict[str, dict],
     return kept[:MAX_BULLETS], dropped
 
 
-MAX_PER_PROJECT = 3
+WANT_PROJECTS = 3       # عدد المشاريع المعروضة
+MAX_PER_PROJECT = 2     # نقطتين لكل مشروع — 3 مشاريع بمساحة اتنين
 MIN_PER_PROJECT = 2
 
 
@@ -189,10 +191,13 @@ def balance_projects(ids: list[str], known: dict) -> list[str]:
     for bid in ids:
         by_project.setdefault(known[bid].get("parent_id", ""), []).append(bid)
 
-    keep = {pid: b[:MAX_PER_PROJECT] for pid, b in by_project.items()
-            if len(b) >= MIN_PER_PROJECT}
+    # المشاريع بترتيب أول ظهورها = ترتيب قوتها عند الموديل
+    keep = {}
+    for pid, b in by_project.items():
+        if len(b) >= MIN_PER_PROJECT and len(keep) < WANT_PROJECTS:
+            keep[pid] = b[:MAX_PER_PROJECT]
 
-    # لو كله اتشال (كل مشروع بنقطة واحدة)، سيب الأقوى بنقطته
+    # الأقل من نقطتين بيتشال — بس لو كده مفضلش حاجة، سيب الأقوى
     if not keep and by_project:
         first = next(iter(by_project))
         keep = {first: by_project[first]}
@@ -242,8 +247,8 @@ def tailor(client, job: dict, cv_path: str | None = None,
             proj, d2 = validate(out.get("project_ids"), known, block="projects")
             proj = balance_projects(proj, known)
             kept, dropped = exp + proj, d1 + d2
-            if len(exp) < 3 or len(proj) < 2:
-                return None, f"اختار {len(exp)} خبرة و{len(proj)} مشاريع — قليل"
+            if len(exp) < 3 or len(proj) < 4:
+                return None, f"اختار {len(exp)} خبرة و{len(proj)} نقط مشاريع — قليل"
 
             return Tailored(
                 bullet_ids=kept,
