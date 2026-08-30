@@ -102,7 +102,14 @@ JS_PEOPLE = """() => {
     // كرت الشخص قصير. الحاويات الكبيرة بتلمّ كذا كرت مع بعض.
     if (!text || text.length > 400) return;
     seen.add(href);
-    out.push({ href: href, lines: text.split('\\n') });
+    // زرار الدعوة جوّه الكارت نفسه، والـ aria فيه اسم الشخص.
+    // ده بيخلي النطاق **بنيوي**: مفيش أي فرصة نلمس زرار بتاع حد تاني.
+    let invite = '';
+    card.querySelectorAll('button[aria-label]').forEach(b => {
+      const al = b.getAttribute('aria-label') || '';
+      if (/^invite/i.test(al) && (b.offsetWidth || b.offsetHeight)) invite = al;
+    });
+    out.push({ href: href, lines: text.split('\\n'), invite: invite });
   });
   return out;
 }"""
@@ -170,6 +177,8 @@ def company_people(page, slug: str, want: int = 25,
                 "profile_url": clean_url(c["href"]),
                 "name": name,
                 "headline": headline,
+                # نص الـ aria بالظبط — هو المفتاح اللي هنضغط بيه بعدين
+                "invite_aria": c.get("invite", ""),
             }
 
         if len(seen) >= want:
@@ -206,6 +215,122 @@ def belongs_to(aria: str, target_name: str) -> bool:
     return bool(a & t)
 
 
+def invite_from_card(page, contact: dict) -> tuple[bool, str]:
+    """
+    ابعت الدعوة من كارت الشخص في تاب People — من غير ما نفتح ملفه.
+
+    المدخل الأول كان بيفتح صفحة الشخص ويدوّر على زرار Connect. وده
+    فشل لسببين اتقاسوا:
+      · صفحة الملف مفيهاش h1، والكارت الرئيسي بيتحمّل تحت الطية،
+        فالزرار مش بيتلقط
+      · الصفحة مليانة أزرار دعوة لناس تانيين (اقتراحات، منشورات)،
+        وأول واحد بيتلقط بعت دعوة لحد محدش اختاره
+
+    الكارت بيحل الاتنين: الزرار جوّاه، والـ aria فيه اسمه.
+    """
+    aria = contact.get("invite_aria") or ""
+    if not aria:
+        return False, "مفيش زرار دعوة في الكارت (متصلين أو متابعة بس)"
+
+    if not belongs_to(aria, contact.get("name") or ""):
+        return False, f"اسم الزرار مش مطابق: {aria[:50]}"
+
+    # بندوّر بالـ aria بالظبط — ده أدق نطاق ممكن
+    safe = aria.replace('"', '\\"')
+    btn = page.query_selector(f'button[aria-label="{safe}"]')
+    if not btn or not btn.is_visible():
+        return False, "الزرار اختفى من الصفحة"
+
+    btn.scroll_into_view_if_needed()
+    human_pause(1, 2.5)
+    btn.click()
+    human_pause(2, 4)
+    guard(page)
+
+    # نافذة التأكيد — أحيانًا بتظهر وأحيانًا الدعوة بتروح على طول
+    for sel in ('button[aria-label="Send without a note"]',
+                'button:has-text("Send without a note")',
+                'button[aria-label="Send now"]',
+                '[role="dialog"] button:has-text("Send")'):
+        try:
+            el = page.query_selector(sel)
+            if el and el.is_visible():
+                el.click()
+                human_pause(2, 4)
+                guard(page)
+                return True, ""
+        except Exception:
+            continue
+
+    # مفيش نافذة: نتأكد إن الزرار اتحوّل لـ Pending
+    human_pause(1, 2)
+    still = page.query_selector(f'button[aria-label="{safe}"]')
+    if still is None:
+        return True, ""            # الزرار اختفى = الدعوة راحت
+    return False, "الزرار لسه مكانه — الدعوة مش متأكدة"
+
+
+def owner_from_title(title: str) -> str:
+    """
+    اسم صاحب الملف من عنوان التبويب: "Omnya Emam | LinkedIn".
+
+    أوثق من الـ DOM: الصفحة مفيهاش h1، وأول h2 بتاع الإشعارات مش
+    بتاع الشخص. والعنوان بيتحدّث مع التنقّل.
+    """
+    t = (title or "").split("|")[0]
+    t = re.sub(r"\(\d+\)", "", t)          # "(3) Name | LinkedIn"
+    return t.strip()
+
+
+def page_owner(page) -> str:
+    try:
+        return owner_from_title(page.title())
+    except Exception:
+        return ""
+
+
+def find_connect(page, owner: str) -> tuple[object | None, str]:
+    """
+    دوّر على زرار الدعوة بتاع صاحب الملف. رجّع (الزرار، اسم غلط لقيناه).
+
+    الاسم هو النطاق، مش موضع العنصر في الشجرة. الصفحة فيها أزرار دعوة
+    كتير — للقايمة الجانبية وللمنشورات — وكلهم جوّه main. المحاولة
+    الأولى اتصرّفت بالموضع فبعتت دعوة لشخص محدش اختاره.
+    """
+    wrong = ""
+    for el in page.query_selector_all("button[aria-label]"):
+        try:
+            aria = el.get_attribute("aria-label") or ""
+            if not re.search(r"invite|connect|تواصل|دعوة", aria, re.I):
+                continue
+            if not el.is_visible():
+                continue
+            if belongs_to(aria, owner):
+                return el, ""
+            wrong = wrong or aria[:60]
+        except Exception:
+            continue
+    return None, wrong
+
+
+def _open_more(page) -> bool:
+    """
+    زرار Connect بيبقى مخبّي جوّه "More" في بعض الملفات.
+    بنفتحها بس لو موجودة، وبنرجع False لو مش موجودة.
+    """
+    for sel in ('main button[aria-label="More actions"]',
+                'main button[aria-label="More"]',
+                'button[aria-label="More actions"]'):
+        try:
+            el = page.query_selector(sel)
+            if el and el.is_visible():
+                el.click()
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def invite(page, contact: dict) -> tuple[bool, str]:
     """
     ابعت دعوة من صفحة الشخص. رجّع (نجح، السبب).
@@ -221,34 +346,33 @@ def invite(page, contact: dict) -> tuple[bool, str]:
     human_pause(3, 7)
     guard(page)
 
-    target = contact.get("name") or ""
-    btn = None
-    wrong = ""
+    # اسم صاحب الملف من عنوان التبويب: "Omnya Emam | LinkedIn".
+    # ده أوثق من الـ DOM — الصفحة مفيهاش h1 أصلاً، والـ h2 الأول
+    # بتاع الإشعارات مش بتاع الشخص.
+    owner = page_owner(page)
+    target = owner or contact.get("name") or ""
+    if not target:
+        return False, "مقدرتش أحدد صاحب الملف"
 
-    # بندوّر جوّه الملف الرئيسي بس. القايمة الجانبية ("أشخاص قد
-    # تعرفهم") فيها أزرار دعوة كمان، وهي أول حاجة بتتلقط لو دوّرنا
-    # في الصفحة كلها.
-    for scope in ("main section:first-of-type", "main .ph5", "main"):
-        for el in page.query_selector_all(f'{scope} button[aria-label*="onnect"], '
-                                          f'{scope} button[aria-label^="Invite"]'):
-            try:
-                if not el.is_visible():
-                    continue
-                aria = el.get_attribute("aria-label") or ""
-                if belongs_to(aria, target):
-                    btn = el
-                    break
-                wrong = aria[:60]
-            except Exception:
-                continue
-        if btn:
-            break
+    # لو الاسم في العنوان مش هو اللي رايحينله، يبقى إحنا على صفحة
+    # غلط أصلاً — نقف قبل أي ضغط.
+    if owner and contact.get("name") and not belongs_to(owner, contact["name"]):
+        return False, f"صفحة شخص تاني: {owner[:40]}"
+
+    btn, wrong = find_connect(page, target)
+
+    # مفيش زرار ظاهر؟ ممكن يكون مخبّي جوّه قايمة "More"
+    if not btn:
+        if _open_more(page):
+            human_pause(1, 2)
+            btn, w2 = find_connect(page, target)
+            wrong = wrong or w2
 
     if not btn:
         if wrong:
             # الحاجز اشتغل: لقينا زرار بس لشخص تاني
             return False, f"الزرار لشخص تاني: {wrong}"
-        return False, "مفيش زرار Connect"
+        return False, "مفيش زرار Connect (متصلين أصلاً أو دعوة معلّقة؟)"
 
     btn.click()
     human_pause(1.5, 3.5)

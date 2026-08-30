@@ -261,3 +261,97 @@ def test_arabic_warnings_stop_us(text):
 
 def test_arabic_normal_page_passes():
     session.guard(FakePage(body="الأشخاص في Mozn · ٢٤٠ موظف"))
+
+
+# ── تحديد صاحب الملف ────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("title,name", [
+    ("Omnya Emam | LinkedIn", "Omnya Emam"),
+    ("(3) Albatul A. | LinkedIn", "Albatul A."),
+    ("Mohamed Hassan, PhD | LinkedIn", "Mohamed Hassan, PhD"),
+    ("LinkedIn", "LinkedIn"),
+    ("", ""),
+])
+def test_owner_from_title(title, name):
+    """
+    عنوان التبويب أوثق من الـ DOM هنا: صفحة الملف مفيهاش h1، وأول h2
+    بتاع الإشعارات مش بتاع الشخص — والاتنين خلّوني أدوّر في المكان الغلط.
+    """
+    assert people.owner_from_title(title) == name
+
+
+def test_owner_matches_intended_target():
+    owner = people.owner_from_title("Omnya Emam | LinkedIn")
+    assert people.belongs_to(f"Invite {owner} to connect", "Omnya Emam")
+
+
+def test_wrong_page_is_caught():
+    """
+    لو الرابط ودّانا لصفحة شخص تاني، بنقف قبل أي ضغط.
+    """
+    owner = people.owner_from_title("Ramy Mohamed | LinkedIn")
+    assert not people.belongs_to(owner, "Omnya Emam")
+
+
+# ── الإرسال من الكارت ───────────────────────────────────────────────────
+
+class FakeBtn:
+    def __init__(self, vis=True):
+        self._vis = vis
+        self.clicked = False
+
+    def is_visible(self):
+        return self._vis
+
+    def scroll_into_view_if_needed(self):
+        pass
+
+    def click(self):
+        self.clicked = True
+
+
+class FakeCardPage(FakePage):
+    def __init__(self, btn=None):
+        super().__init__()
+        self.btn = btn
+        self.queries = []
+
+    def query_selector(self, sel):
+        self.queries.append(sel)
+        return self.btn
+
+
+def test_no_invite_button_means_skip():
+    """
+    كارت من غير زرار دعوة = متصلين أصلاً أو متابعة بس. بنسجّلها
+    ونعدّي، مش بنحاول نفتح ملفه ونلف على الصفحة.
+    """
+    ok, why = people.invite_from_card(FakeCardPage(), {"name": "X", "invite_aria": ""})
+    assert not ok and "مفيش زرار" in why
+
+
+def test_mismatched_aria_blocks_the_click():
+    """
+    الحاجز اللي كان ناقص: aria لشخص تاني = مانضغطش.
+    ده اللي بعت دعوة لـ Tarek Osama وهو مش في القايمة أصلاً.
+    """
+    btn = FakeBtn()
+    page = FakeCardPage(btn)
+    ok, why = people.invite_from_card(
+        page, {"name": "Omnya Emam", "invite_aria": "Invite Rami Malek to connect"})
+    assert not ok and "مش مطابق" in why
+    assert not btn.clicked, "ضغط رغم إن الاسم مختلف"
+
+
+def test_selector_uses_the_exact_aria():
+    """
+    البحث بالـ aria الكامل — أضيق نطاق ممكن. لو دوّرنا بمحدِّد عام،
+    بنرجع لنفس الخلل اللي بعت لشخص تاني.
+    """
+    btn = FakeBtn()
+    page = FakeCardPage(btn)
+    people.invite_from_card(
+        page, {"name": "Heba Ismail",
+               "invite_aria": "Invite Heba Ismail to connect"})
+    assert any('aria-label="Invite Heba Ismail to connect"' in q
+               for q in page.queries)

@@ -73,6 +73,13 @@ def target_companies(db, limit: int = 6) -> list[dict]:
     return rows
 
 
+def url_of(company: dict, keywords: str) -> str:
+    """الصفحة اللي الشخص اتلقى فيها — بنرجعلها وقت الإرسال."""
+    from urllib.parse import quote
+    u = f"https://www.linkedin.com/company/{company['linkedin_slug']}/people/"
+    return u + (f"?keywords={quote(keywords)}" if keywords else "")
+
+
 def gather(page, db, companies: list[dict], need: int) -> list[dict]:
     """اسحب مرشحين جداد من صفحات الشركات، مفلترين ومرتبين بالأولوية."""
     seen = known_keys(db)
@@ -104,6 +111,7 @@ def gather(page, db, companies: list[dict], need: int) -> list[dict]:
                     continue
                 seen.add(p["profile_key"])
                 out.append(p | {"company": c["name"], "kind": kind,
+                                "page": url_of(c, kw),
                                 "source": f"company:{c['linkedin_slug']}"})
 
             session.human_pause(4, 9)
@@ -212,7 +220,19 @@ def main() -> int:
                 continue
 
             try:
-                ok, why = people.invite(page, p)
+                # نرجع للصفحة اللي الكارت فيها. الزرار جوّه الكارت
+                # والـ aria فيه الاسم — نطاق بنيوي مفيش فيه لبس.
+                if page.url.split("#")[0] != p["page"]:
+                    page.goto(p["page"], wait_until="domcontentloaded",
+                              timeout=30_000)
+                    session.human_pause(4, 7)
+                    # الكارت ممكن يكون تحت — نعيد السحب عشان الزرار
+                    # يبقى موجود في الـ DOM
+                    people.company_people(
+                        page, p["source"].split(":")[1], want=25,
+                        keywords=p["page"].split("keywords=")[-1]
+                        if "keywords=" in p["page"] else "")
+                ok, why = people.invite_from_card(page, p)
             except Blocked as b:
                 blocked = str(b)
                 print(f"\n🛑 {b}")
