@@ -32,7 +32,10 @@ profile:
   location: "Cairo, Egypt"
   languages: ["Arabic (native)", "English (professional)"]
   open_to: ["remote", "relocation", "visa sponsorship"]
+  # بتظهر في الترويسة بس لو show_notes = true. مفيدة للتقديم داخل
+  # مصر، وبتزحم السطر من غير فايدة في التقديم الريموت أو الخارجي.
   notes: "Completed military service"
+  show_notes: false
   summary: >
     AI & Automation Engineer shipping production LLM and automation systems
     end to end: backend, data, retrieval, and the integrations that hold them
@@ -43,25 +46,26 @@ profile:
   summary_short: >
     AI & Automation Engineer building LLM agents, backend services and data
     pipelines that run unattended in production — Python, FastAPI, Supabase,
-    and the integrations between them.
+    and the integrations that hold them together under real load.
 
 # ── المهارات ───────────────────────────────────────────────────────────
 
 # 4 مجموعات بس. 7 مجموعات كانت بتشتّت العين وبتاخد ثلث الصفحة —
 # والـ recruiter بيمسح المهارات في ثانيتين، مش بيقراها.
+# 4 مجموعات بس، وكل واحدة مركّزة. المهارات بتتقري في ثانيتين —
+# القايمة الطويلة بتضيّع الأهم وسط الأقل أهمية.
 skills:
   Backend & APIs:
     [Python, FastAPI, "REST APIs", Webhooks, Authentication,
-     PostgreSQL, Supabase, SQL, SQLite]
+     PostgreSQL, Supabase, SQL]
   AI & LLM:
     ["LLM APIs", RAG, "AI agents", "Prompt engineering", "Structured output",
-     Ollama, Whisper, LightGBM, "scikit-learn", "Model evaluation", NLP]
+     "Model evaluation", Ollama, Whisper]
   Automation & Scraping:
-    [Playwright, Selenium, BeautifulSoup, "Google Apps Script",
-     "Resumable workflows", "Data pipelines", "Amazon SP-API", "eBay API"]
+    [Playwright, Selenium, "Google Apps Script", "Resumable workflows",
+     "Data pipelines", "Amazon SP-API", "eBay API"]
   Data & Platforms:
-    [Pandas, NumPy, "ETL", Docker, Git, Linux, Streamlit,
-     "Google Workspace APIs", "Telegram Bots"]
+    [Pandas, NumPy, ETL, Docker, Git, Linux, Streamlit, "Telegram Bots"]
 
 # ⚠️ اللي مش عندك. المقيّم بيستخدمها عشان مايبالغش.
 not_experienced_with:
@@ -72,6 +76,15 @@ not_experienced_with:
   - "n8n / Zapier (لسه ماستخدمتهاش في شغل حقيقي)"
 
 # ── الخبرة ─────────────────────────────────────────────────────────────
+#
+# rank = ترتيب القوة جوّه نفس الجهة (1 = الأقوى).
+#
+# فصل مقصود في المسؤولية:
+#   الموديل بيقرر **أنهي** نقط تخص الوظيفة دي
+#   وإنت بتقرر **بأي ترتيب** تظهر لو اتاختارت
+#
+# القارئ بيمسح شركة من فوق لتحت وبيقف عند أول رقم — فالترتيب
+# مش تفصيلة شكلية.
 
 experience:
   - id: exp1
@@ -81,21 +94,27 @@ experience:
     mode: "Remote"
     bullets:
       - id: b1
+        rank: 1
         text: "Build and maintain three internal AI and automation products in Python, FastAPI and Supabase"
         tags: [python, fastapi, supabase, ownership]
       - id: b2
+        rank: 2
         text: "Built a review-intelligence system tracking ~10,000 products and reconciling 800,000 reviews against 1.1M snapshots"
         tags: [data, scale, pipelines, reconciliation]
       - id: b3
+        rank: 3
         text: "Trained a 37-feature LightGBM model that predicts the exact displayed star rating 80.7% of the time on unseen products (0.034 MAE)"
         tags: [ml, lightgbm, evaluation, metrics]
       - id: b4
+        rank: 4
         text: "Built a Solana research platform holding dashboard queries at 0.84s against 10+ GB of data"
         tags: [performance, data, dashboards, realtime]
       - id: b5
+        rank: 6
         text: "Shipped every trading strategy behind paper-trading validation and two independent safety switches"
         tags: [safety, risk, testing, production]
       - id: b6
+        rank: 5
         text: "Designed resumable scraping workflows with captcha/TOTP handling, account rotation and retry logic"
         tags: [automation, scraping, resilience, playwright]
 
@@ -106,21 +125,27 @@ experience:
     mode: "Remote"
     bullets:
       - id: b7
+        rank: 1
         text: "Delivered 6+ client platforms end to end, from first call to launch; earned Upwork Rising Talent"
         tags: [delivery, client-facing, ownership, communication]
       - id: b8
+        rank: 2
         text: "Rebuilt a bilingual field-service CRM in Bahrain: migrated 17,000+ records into 17 secured tables and cut the slowest page from 5.6s to 0.56s"
         tags: [crm, postgres, performance, migration, i18n]
       - id: b9
+        rank: 3
         text: "Built inventory and marketplace-pricing platforms across Amazon, eBay and Shopify covering 25,000+ items"
         tags: [integrations, marketplaces, apis, pricing]
       - id: b10
+        rank: 5
         text: "Built a resumable lead pipeline covering 2,662 towns with classification, enrichment, deduplication and QA reporting"
         tags: [pipelines, scraping, data-quality, resumable]
       - id: b11
+        rank: 4
         text: "Delivered a wholesale ops platform with multi-format supplier ingestion, GTIN validation and transaction-safe workflows, covered by 162 automated tests"
         tags: [testing, data-validation, transactions, backend]
       - id: b12
+        rank: 6
         text: "Worked directly with non-technical clients to turn vague requirements into shipped systems"
         tags: [communication, requirements, client-facing, stakeholder]
 
@@ -133,12 +158,15 @@ projects:
     url: "https://github.com/El-Sayed-Mustafa/meeting-copilot"
     bullets:
       - id: b13
+        rank: 1
         text: "Built a local-first AI meeting copilot: Whisper transcription and Ollama inference run entirely on the user's machine, so no call data ever leaves the laptop"
         tags: [llm, local-models, privacy, whisper, ollama]
       - id: b14
+        rank: 2
         text: "Implemented scoped retrieval so answers come only from that client's own notes, with grounding controls that refuse to state anything unconfirmed"
         tags: [rag, retrieval, grounding, hallucination-control]
       - id: b15
+        rank: 3
         text: "Shipped it as a cross-platform desktop app with Tauri and a React/TypeScript front end"
         tags: [desktop, tauri, typescript, react]
 
@@ -148,9 +176,11 @@ projects:
     url: "https://github.com/El-Sayed-Mustafa/bluebug-rating-showcase"
     bullets:
       - id: b16
+        rank: 1
         text: "Engineered 37 features and trained a LightGBM model reaching 80.7% exact-match accuracy and 0.034 MAE on unseen products"
         tags: [ml, feature-engineering, lightgbm, metrics]
       - id: b17
+        rank: 2
         text: "Built an interactive tool for rating estimation, review-impact analysis, target simulations and confidence reporting"
         tags: [tooling, simulation, dashboards, product]
 
@@ -160,9 +190,11 @@ projects:
     url: "https://github.com/El-Sayed-Mustafa/solana-market-bot-showcase"
     bullets:
       - id: b18
+        rank: 1
         text: "Built a real-time scanner integrating DexScreener, Birdeye, GeckoTerminal, Helius WebSockets and Jupiter quotes"
         tags: [realtime, websockets, integrations, apis]
       - id: b19
+        rank: 2
         text: "Implemented token discovery, liquidity and momentum filters, risk controls, backtesting and experiment tracking"
         tags: [ml, backtesting, risk, experimentation]
 
@@ -172,9 +204,11 @@ projects:
     url: "https://github.com/El-Sayed-Mustafa/review-pipeline-showcase"
     bullets:
       - id: b20
+        rank: 1
         text: "Built six scraping and auditing tools for ASIN details, review collection, variation analysis, listing health and gap detection across marketplaces"
         tags: [scraping, playwright, tooling, marketplaces]
       - id: b21
+        rank: 2
         text: "Synchronised reporting across Supabase and Google Sheets so operators could work in the tool they already used"
         tags: [integrations, sheets, operations, reporting]
 
@@ -184,18 +218,23 @@ projects:
     url: "https://github.com/El-Sayed-Mustafa/apply-agent"
     bullets:
       - id: b22
+        rank: 1
         text: "Built a job-search system pulling from 17 public ATS and aggregator sources, scoring each role against a structured CV with an LLM"
         tags: [llm, automation, python, pipelines]
       - id: b23
+        rank: 2
         text: "Designed CV tailoring as constrained selection over a closed set of bullet ids, making fabricated experience structurally impossible rather than merely discouraged"
         tags: [llm, constrained-output, safety, design]
       - id: b24
+        rank: 3
         text: "Built a self-expanding company-discovery loop that resolves company names to ATS endpoints and registers them permanently"
         tags: [automation, discovery, apis, systems]
       - id: b25
+        rank: 4
         text: "Secured a public webhook with a shared secret, chat allowlisting and strict payload validation, verified against the deployed endpoint"
         tags: [security, webhooks, deno, edge-functions]
       - id: b26
+        rank: 5
         text: "Covered the system with 258 offline tests including recorded-fixture contract tests that fail when an upstream API changes shape"
         tags: [testing, reliability, contract-tests]
 
@@ -205,6 +244,7 @@ projects:
     url: "https://github.com/El-Sayed-Mustafa/pest-control-crm-bahrain"
     bullets:
       - id: b27
+        rank: 1
         text: "Designed 17 secured Supabase tables with role-based access control and audit history for a bilingual field-service team"
         tags: [postgres, rbac, schema-design, i18n]
 
@@ -214,6 +254,7 @@ projects:
     url: "https://github.com/El-Sayed-Mustafa/wahaca-kds-dashboard"
     bullets:
       - id: b28
+        rank: 1
         text: "Built an automated kitchen-performance reporting pipeline for a multi-site restaurant group"
         tags: [automation, apps-script, reporting, operations]
 

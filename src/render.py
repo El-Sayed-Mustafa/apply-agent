@@ -24,25 +24,66 @@ ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE = Path(__file__).resolve().parent / "cv_template.html"
 FONTS = ROOT / "assets" / "fonts" / "TTF"
 
-SEP = '<span class="sep">·</span>'
+# مسافات حقيقية حوالين الفاصل. الـ padding بتاع الـ CSS بيختفي وقت
+# استخراج النص، فالعناصر بتلتزق ببعض — "DeepLearning.AI·Advanced SQL".
+# النقطة بمسافاتها بتفضل موجودة في النص المستخرج.
+SEP = '<span class="sep">&nbsp;·&nbsp;</span>'
 
-# أيقونات SVG بسيطة — مرسومة مش حروف، فمبتظهرش في استخراج النص
-_SVG = {
-    "mail":  '<path d="M2 4h12v8H2z"/><path d="M2 5l6 4 6-4"/>',
-    "phone": '<path d="M4 2h3l1.5 3.5-2 1a9 9 0 004 4l1-2L15 10v3a1 1 0 01-1 1'
-             'A11.5 11.5 0 013 3a1 1 0 011-1z"/>',
-    "pin":   '<path d="M8 14s5-4.4 5-8A5 5 0 003 6c0 3.6 5 8 5 8z"/>'
-             '<circle cx="8" cy="6" r="1.8"/>',
-    "check": '<circle cx="8" cy="8" r="6.2"/><path d="M5.4 8.2l1.9 1.9 3.4-3.9"/>',
-    "link":  '<path d="M6.8 9.2a3 3 0 004.3 0l2-2a3 3 0 00-4.3-4.3l-1 1"/>'
-             '<path d="M9.2 6.8a3 3 0 00-4.3 0l-2 2a3 3 0 004.3 4.3l1-1"/>',
+# أيقونات SVG — مرسومة مش حروف، فمبتظهرش خالص في استخراج النص.
+# لو كانت رموز نصية (✉ 📞) كانت هتتلزق بالإيميل عند الـ ATS.
+#
+# stroke = خطوط مرسومة · fill = أشكال مصمتة (العلامات التجارية)
+_STROKE = {
+    "mail":  '<rect x="1.6" y="3.4" width="12.8" height="9.2" rx="1.4"/>'
+             '<path d="M2 4.4l6 4.2 6-4.2"/>',
+    "phone": '<path d="M3.6 2h2.6l1.3 3.2-1.7.9a8.5 8.5 0 004.1 4.1l.9-1.7'
+             'L14 9.8v2.6a1.6 1.6 0 01-1.7 1.6A11.8 11.8 0 012 3.7'
+             'A1.6 1.6 0 013.6 2z"/>',
+    "pin":   '<path d="M8 14.2s4.8-4.3 4.8-7.7A4.8 4.8 0 003.2 6.5'
+             'C3.2 9.9 8 14.2 8 14.2z"/><circle cx="8" cy="6.4" r="1.7"/>',
+    "link":  '<path d="M6.9 9.1a2.9 2.9 0 004.2 0l1.9-1.9a2.9 2.9 0 00-4.2-4.2'
+             'l-1 1"/><path d="M9.1 6.9a2.9 2.9 0 00-4.2 0L3 8.8'
+             'a2.9 2.9 0 004.2 4.2l1-1"/>',
 }
+
+_FILL = {
+    "shield": 'M8 .9L2.2 3v4.4c0 3.6 2.5 6.9 5.8 7.7 3.3-.8 5.8-4.1 5.8-7.7V3z'
+              'm-.7 10.4L4.9 8.9l1.1-1.1 1.3 1.3 3.4-3.4 1.1 1.1z',
+    "linkedin": 'M13.6 0H2.4A2.4 2.4 0 000 2.4v11.2A2.4 2.4 0 002.4 16h11.2'
+                'a2.4 2.4 0 002.4-2.4V2.4A2.4 2.4 0 0013.6 0zM5 13.4H2.7V6.1H5z'
+                'M3.8 5.1a1.34 1.34 0 110-2.7 1.34 1.34 0 010 2.7zm9.6 8.3h-2.3'
+                'V9.8c0-.87-.02-2-1.22-2-1.22 0-1.4.95-1.4 1.94v3.66H6.2V6.1h2.2'
+                'v1h.03c.31-.58 1.06-1.2 2.18-1.2 2.33 0 2.76 1.53 2.76 3.53z',
+    "github": 'M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55'
+              '-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48'
+              '-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72'
+              ' 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64'
+              '-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21'
+              ' 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82'
+              ' 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87'
+              ' 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21'
+              '.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z',
+    "upwork": 'M12.1 5.1c-1.6 0-2.8 1.05-3.3 2.7-.6-.95-1.1-2.1-1.45-3.05H5.5'
+              'v3.8c0 .95-.65 1.6-1.5 1.6s-1.5-.65-1.5-1.6V4.75H0v3.8'
+              'c0 1.15.45 2.2 1.2 2.95.75.75 1.8 1.15 3.05 1.15 2.4 0 4.1-1.8'
+              ' 4.1-4.2v-.55c.3.65.65 1.3 1.05 1.9l-.95 4.5h1.9l.65-3.15'
+              'c.55.35 1.15.55 1.8.55 2.1 0 3.7-1.7 3.7-3.9s-1.7-3.8-3.7-3.8z'
+              'm0 5.6c-.55 0-1.05-.2-1.5-.55l.1-.65c.25-.95.75-1.8 1.5-1.8'
+              '.75 0 1.4.65 1.4 1.5s-.65 1.5-1.5 1.5z',
+}
+
+# اسم الرابط → أيقونته. اللي مش في القايمة بياخد أيقونة رابط عامة.
+LINK_ICONS = {"linkedin": "linkedin", "github": "github", "upwork": "upwork"}
 
 
 def icon(name: str) -> str:
-    body = _SVG.get(name, "")
-    return (f'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true">{body}</svg>'
-            if body else "")
+    if name in _FILL:
+        return (f'<svg class="ic fill" viewBox="0 0 16 16" aria-hidden="true">'
+                f'<path d="{_FILL[name]}"/></svg>')
+    if name in _STROKE:
+        return (f'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true">'
+                f'{_STROKE[name]}</svg>')
+    return ""
 
 
 # ── الخطوط ──────────────────────────────────────────────────────────────
@@ -92,8 +133,16 @@ def link(text, url: str | None, cls: str = "") -> str:
 
 
 def _bullets(ids: list[str], bullets: dict) -> str:
-    items = "".join(f"<li>{emphasise(bullets[b]['text'])}</li>"
-                    for b in ids if b in bullets)
+    """
+    النقط مرتّبة بـ rank من cv.yaml، مش بترتيب الموديل.
+
+    فصل في المسؤولية: الموديل بيقرر **أنهي** نقط تخص الوظيفة، وإنت
+    بتقرر **بأي ترتيب** تظهر. القارئ بيمسح شركة من فوق لتحت وبيقف
+    عند أول رقم — فالترتيب قرار صاحب السيرة مش قرار الموديل.
+    """
+    chosen = [b for b in ids if b in bullets]
+    chosen.sort(key=lambda b: bullets[b].get("rank", 99))
+    items = "".join(f"<li>{emphasise(bullets[b]['text'])}</li>" for b in chosen)
     return f"<ul>{items}</ul>" if items else ""
 
 
@@ -109,10 +158,11 @@ def _header_meta(contact: dict, profile: dict) -> str:
                     + link(contact["phone"], f"tel:{contact['phone']}"))
     if contact.get("location"):
         bits.append(icon("pin") + esc(contact["location"]))
-    if profile.get("notes"):
-        bits.append(icon("check") + esc(profile["notes"]))
+    if profile.get("notes") and profile.get("show_notes"):
+        bits.append(icon("shield") + esc(profile["notes"]))
     for label, url in (contact.get("links") or {}).items():
-        bits.append(icon("link") + link(label, url))
+        bits.append(icon(LINK_ICONS.get(label.lower(), "link"))
+                    + link(label, url))
     return SEP.join(bits)
 
 
@@ -149,7 +199,7 @@ def _projects(cv: dict, picked: dict, order: dict, bullets: dict) -> str:
             + (f'<div class="stack">{esc(p.get("stack"))}</div>'
                if p.get("stack") else "")
             + _bullets(picked[p["id"]], bullets) + "</article>")
-    return "<section><h2>Projects</h2>" + "".join(out) + "</section>"
+    return "<section><h2>Selected Projects</h2>" + "".join(out) + "</section>"
 
 
 def _skills(cv: dict) -> str:

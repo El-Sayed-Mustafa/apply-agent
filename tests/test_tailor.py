@@ -220,3 +220,67 @@ def test_pdf_renders_one_page():
         pytest.skip(f"مفيش متصفح: {exc}")
     assert pdf[:4] == b"%PDF"
     assert render._page_count(pdf) == 1      # الضبط الذاتي شغال
+
+
+# ── توازن المشاريع ──────────────────────────────────────────────────────
+
+PROJ = {
+    "p1a": {"parent_id": "proj1", "block": "projects", "text": "a"},
+    "p1b": {"parent_id": "proj1", "block": "projects", "text": "b"},
+    "p1c": {"parent_id": "proj1", "block": "projects", "text": "c"},
+    "p1d": {"parent_id": "proj1", "block": "projects", "text": "d"},
+    "p2a": {"parent_id": "proj2", "block": "projects", "text": "e"},
+    "p2b": {"parent_id": "proj2", "block": "projects", "text": "f"},
+}
+
+
+def test_project_capped_at_three():
+    """مشروع بـ4 نقط والتاني بواحدة كان بيخلي التاني يبان ضعيف."""
+    out = tailor.balance_projects(["p1a", "p1b", "p1c", "p1d", "p2a", "p2b"], PROJ)
+    assert out.count("p1d") == 0
+    assert len([x for x in out if x.startswith("p1")]) == 3
+    assert len([x for x in out if x.startswith("p2")]) == 2
+
+
+def test_lonely_project_dropped():
+    """مشروع بنقطة واحدة بيبان ناقص — يتشال أحسن من إنه يظهر ضعيف."""
+    out = tailor.balance_projects(["p1a", "p1b", "p2a"], PROJ)
+    assert "p2a" not in out and out == ["p1a", "p1b"]
+
+
+def test_order_preserved():
+    out = tailor.balance_projects(["p2a", "p2b", "p1a", "p1b"], PROJ)
+    assert out == ["p2a", "p2b", "p1a", "p1b"]
+
+
+def test_all_lonely_keeps_the_first():
+    """لو كل المشاريع بنقطة واحدة، مانرجعش فاضي."""
+    assert tailor.balance_projects(["p1a", "p2a"], PROJ)
+
+
+# ── ترتيب النقط جوّه الجهة ──────────────────────────────────────────────
+
+def test_bullets_sorted_by_rank_not_model_order():
+    """
+    الموديل بيقرر أنهي نقط. صاحب السيرة بيقرر ترتيبها.
+    لو الترتيب اتساب للموديل، أقوى إنجاز ممكن يقع تالت أو رابع
+    والقارئ يكون سابه قبل ما يوصله.
+    """
+    b = {"x": {"text": "weak", "rank": 3},
+         "y": {"text": "strong", "rank": 1},
+         "z": {"text": "mid", "rank": 2}}
+    html = render._bullets(["x", "y", "z"], b)      # ترتيب الموديل
+    assert html.index("strong") < html.index("mid") < html.index("weak")
+
+
+def test_missing_rank_goes_last():
+    b = {"x": {"text": "ranked", "rank": 1}, "y": {"text": "unranked"}}
+    html = render._bullets(["y", "x"], b)
+    assert html.index("ranked") < html.index("unranked")
+
+
+def test_every_bullet_has_a_rank():
+    """نقطة من غير rank بتقع في الآخر — وده غالبًا مش المقصود."""
+    bullets, _ = tailor.load_catalogue()
+    missing = [b for b, m in bullets.items() if "rank" not in m]
+    assert not missing, f"نقط من غير rank: {missing}"

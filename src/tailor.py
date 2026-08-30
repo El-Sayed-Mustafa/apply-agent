@@ -52,14 +52,18 @@ YOU MAY ONLY RETURN IDs FROM THIS LIST. Nothing else exists.
 RETURN TWO SEPARATE LISTS:
 
 `experience_ids` — 8 to 11 ids from the EXPERIENCE block, most relevant first.
-`project_ids`    — 4 to 6 ids drawn from exactly 2 or 3 DIFFERENT projects,
-                   strongest project first. Pick the projects that best prove
-                   this job's requirements, not the ones that sound biggest.
+`project_ids`    — 5 or 6 ids drawn from exactly 2 or 3 DIFFERENT projects,
+                   strongest project first, and **2 to 3 ids per project** so
+                   no project looks thinner than the others. Pick the projects
+                   that best prove this job's requirements, not the biggest.
 
 RULES:
 - Never invent an id. Never invent experience.
 - Order matters: the page is trimmed from the end, so the last ids you return
   are the ones most likely to be cut. Put the strongest first.
+- Within a single employer, lead with the bullet carrying the largest concrete
+  result, then the next largest. A reader scanning one company reads top-down
+  and stops at the first number.
 - Prefer bullets carrying concrete numbers — those are what a reader stops on.
 - Select a bullet because the job description asks for that thing, not because
   it sounds impressive.
@@ -167,6 +171,35 @@ def validate(raw_ids, known: dict[str, dict],
     return kept[:MAX_BULLETS], dropped
 
 
+MAX_PER_PROJECT = 3
+MIN_PER_PROJECT = 2
+
+
+def balance_projects(ids: list[str], known: dict) -> list[str]:
+    """
+    وازن النقط بين المشاريع.
+
+    الموديل كان بيدي 4 نقط لمشروع وواحدة للتاني — فالتاني بيبان
+    ضعيف حتى لو هو أقوى. هنا بنسقّف كل مشروع عند 3 وبنشيل أي مشروع
+    مالوش نقطتين على الأقل، عشان كل مشروع معروض يبان مكتمل.
+
+    قاعدة في الكود مش رجاء في الـ prompt — الموديل بينسى، والكود لأ.
+    """
+    by_project: dict[str, list[str]] = {}
+    for bid in ids:
+        by_project.setdefault(known[bid].get("parent_id", ""), []).append(bid)
+
+    keep = {pid: b[:MAX_PER_PROJECT] for pid, b in by_project.items()
+            if len(b) >= MIN_PER_PROJECT}
+
+    # لو كله اتشال (كل مشروع بنقطة واحدة)، سيب الأقوى بنقطته
+    if not keep and by_project:
+        first = next(iter(by_project))
+        keep = {first: by_project[first]}
+
+    return [b for b in ids if b in {x for v in keep.values() for x in v}]
+
+
 def tailor(client, job: dict, cv_path: str | None = None,
            models: list[str] | None = None) -> tuple[Tailored | None, str]:
     """رجّع (النتيجة، الخطأ)."""
@@ -207,6 +240,7 @@ def tailor(client, job: dict, cv_path: str | None = None,
 
             exp, d1 = validate(out.get("experience_ids"), known, block="experience")
             proj, d2 = validate(out.get("project_ids"), known, block="projects")
+            proj = balance_projects(proj, known)
             kept, dropped = exp + proj, d1 + d2
             if len(exp) < 3 or len(proj) < 2:
                 return None, f"اختار {len(exp)} خبرة و{len(proj)} مشاريع — قليل"
