@@ -45,6 +45,16 @@ const CONFIRM: Record<string, { value: boolean; label: string; toast: string }> 
 //
 // من غيرها بنقيس "التقييم بيتوقع إنه هيقدّم" بس — مش "بيتوقع إنه
 // هيتقبل"، وهي دي اللي بتهم.
+// موافقة على كومنت. الرقم هنا **id الكومنت** مش job_id — جدول
+// مختلف تمامًا، فبيتعامل لوحده.
+//
+// الكومنت هو الفعل الوحيد اللي بينشر حاجة عامة باسمك. عشان كده
+// مفيش نشر تلقائي: الضغطة دي شرط، مش تأكيد.
+const COMMENT: Record<string, { status: string; label: string; toast: string }> = {
+  ka: { status: "approved", label: "✅ اتنشر", toast: "هينشر في التشغيلة الجاية" },
+  kr: { status: "rejected", label: "❌ اترفض", toast: "اترفض" },
+};
+
 const OUTCOME: Record<string, { value: string; label: string; toast: string }> = {
   or: { value: "reply",     label: "📧 رد",     toast: "اتسجّل" },
   oi: { value: "interview", label: "🎤 مقابلة", toast: "ممتاز 🎉" },
@@ -107,7 +117,8 @@ Deno.serve(async (req) => {
   const decide = DECIDE[key];
   const confirm = CONFIRM[key];
   const outcome = OUTCOME[key];
-  const action = decide ?? confirm ?? outcome;
+  const comment = COMMENT[key];
+  const action = decide ?? confirm ?? outcome ?? comment;
 
   // مفتاح مش معروف — نتجاهل من غير ما نلمس الداتابيز
   if (!action) {
@@ -115,9 +126,29 @@ Deno.serve(async (req) => {
     return new Response("ok");
   }
 
+  const now = new Date().toISOString();
+
+  // الكومنتات جدول تاني والرقم id بتاعه — مش job_id
+  if (comment) {
+    const { error: e2 } = await db.from("comments")
+      .update({ status: comment.status, decided_at: now })
+      .eq("id", jobId).eq("status", "proposed");
+    await tg("answerCallbackQuery", {
+      callback_query_id: cq.id,
+      text: e2 ? "مقدرتش أسجّل" : comment.toast,
+    });
+    if (!e2) {
+      await tg("editMessageReplyMarkup", {
+        chat_id: chatId, message_id: cq.message.message_id,
+        reply_markup: { inline_keyboard: [[{ text: comment.label,
+                                             callback_data: "x" }]] },
+      });
+    }
+    return new Response("ok");
+  }
+
   // ── الكتابة ──
   // upsert على job_id: الضغط مرتين بيحدّث القرار مش بيضيف صف.
-  const now = new Date().toISOString();
   const row = decide
     ? { job_id: jobId, status: decide.status, decided_at: now }
     : confirm

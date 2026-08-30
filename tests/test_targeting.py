@@ -213,10 +213,16 @@ def test_too_senior(text, blocked):
     assert targeting.is_too_senior(text)[0] is blocked
 
 
-def test_senior_title_excluded():
-    """المفتاح exclude_senior_in_title شغال."""
-    assert not targeting.matches_role("Senior AI Engineer")
-    assert not targeting.matches_role("Sr. Data Engineer")
+def test_senior_title_switch_is_off():
+    """
+    الشرط اتقفل بعد قياس: كان بيكلّف 139 وظيفة مؤهلة (188 → 327).
+    و"Senior" في العنوان كلمة تسويقية — المتطلب الحقيقي في نص
+    الإعلان، وقاعدة السنين بتمسكه بدقة.
+    """
+    assert targeting.matches_role("Senior AI Engineer")
+    assert targeting.matches_role("Sr. Data Engineer")
+    # واللي بيطلب خبرة فعلية لسه بيترفض
+    assert targeting.is_too_senior("We need 8+ years of experience.")[0]
 
 
 @pytest.mark.parametrize("title", [
