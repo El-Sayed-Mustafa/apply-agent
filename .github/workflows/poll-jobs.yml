@@ -84,3 +84,15 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python -m src.notify
+
+      - name: Follow up on applications
+        # "خلّصت تقديم؟" بعد ساعة من ضغطة ✅.
+        # من غير الخطوة دي، applied معناها "دُست زرار" مش "قدّمت"،
+        # وكل قياس على دقة التقييم هيبقى مبني على تسميات غلط.
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m src.followup

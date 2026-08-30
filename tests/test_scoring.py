@@ -186,3 +186,36 @@ def test_attempt_cap_prevents_infinite_retry():
 def test_time_budget_fits_workflow():
     """مهلة الـ workflow 10 دقايق، والسحب بياخد منها."""
     assert scoring.TIME_BUDGET <= 540
+
+
+# ── جودة الموديل ────────────────────────────────────────────────────────
+
+def test_weak_models_not_in_rotation():
+    """
+    flash-lite قِسناه: طلّع Python صفر مرة من 45 إعلان بتذكرها.
+    ولما كان في القايمة، عمل 173 من 234 تقييم — لأن الكويسين بيخلصوا
+    حصتهم بسرعة فالتنقّل بيسقط عليه.
+    """
+    for weak in scoring.WEAK_MODELS:
+        assert weak not in scoring.MODELS, f"{weak} رجع للقايمة"
+
+
+def test_weak_model_list_not_empty():
+    """لو القايمة فضيت، إعادة التقييم مش هتشتغل على حاجة."""
+    assert scoring.WEAK_MODELS
+
+
+def test_refuter_is_a_switch():
+    """
+    لازم نقدر نقفله عشان نقيس: شهر شغال، شهر مقفول، وقارن.
+    لو مفيش فرق في دقة التوقع — نقفله ونوفّر نص التكلفة.
+    """
+    assert isinstance(scoring.REFUTE, bool)
+
+
+def test_cv_version_changes_with_the_file(tmp_path):
+    """بصمة مختلفة لملف مختلف — عشان مانخلطش تقييمات على بيانات مختلفة."""
+    a = tmp_path / "a.yaml"; a.write_text("profile:\n  title: X\n", encoding="utf-8")
+    b = tmp_path / "b.yaml"; b.write_text("profile:\n  title: Y\n", encoding="utf-8")
+    assert scoring.cv_version(str(a)) != scoring.cv_version(str(b))
+    assert scoring.cv_version(str(a)) == scoring.cv_version(str(a))

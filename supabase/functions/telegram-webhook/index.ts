@@ -23,10 +23,21 @@ const db = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-const ACTIONS: Record<string, { status: string; label: string; toast: string }> = {
+// قرار على وظيفة: بيكتب status
+const DECIDE: Record<string, { status: string; label: string; toast: string }> = {
   a: { status: "applied", label: "✅ قدّمت", toast: "اتسجّل — بالتوفيق" },
   s: { status: "skipped", label: "❌ مش مناسبة", toast: "اتسجّل" },
   l: { status: "later", label: "🕐 بعدين", toast: "اتأجّلت" },
+};
+
+// رد على سؤال "خلّصت تقديم؟": بيكتب confirmed
+//
+// الفرق مهم: الزرار الأول معناه "نويت أقدّم"، ودي معناها "قدّمت فعلاً".
+// جدول applications هو الحقيقة الأرضية لكل قياس في المشروع — لو
+// خلطنا الاتنين، كل استنتاج عن دقة التقييم هيبقى مبني على تسميات غلط.
+const CONFIRM: Record<string, { value: boolean; label: string; toast: string }> = {
+  c: { value: true, label: "✅ اتأكد", toast: "تمام — اتسجّل" },
+  n: { value: false, label: "❌ مكمّلش", toast: "اتسجّل" },
 };
 
 async function tg(method: string, body: unknown) {
@@ -71,23 +82,27 @@ Deno.serve(async (req) => {
 
   // ── الطبقة ٣: شكل البيانات ──
   // الشكل المتوقع: "a:123" — حرف واحد ونقطتين ورقم.
-  const m = /^([asl]):(\d{1,12})$/.exec(String(cq.data ?? ""));
+  const m = /^([aslcn]):(\d{1,12})$/.exec(String(cq.data ?? ""));
   if (!m) {
     await tg("answerCallbackQuery", { callback_query_id: cq.id, text: "?" });
     return new Response("ok");
   }
 
-  const action = ACTIONS[m[1]];
+  const key = m[1];
   const jobId = Number(m[2]);
+  const decide = DECIDE[key];
+  const confirm = CONFIRM[key];
+  const action = decide ?? confirm!;
 
   // ── الكتابة ──
   // upsert على job_id: الضغط مرتين بيحدّث القرار مش بيضيف صف.
+  const row = decide
+    ? { job_id: jobId, status: decide.status, decided_at: new Date().toISOString() }
+    : { job_id: jobId, status: "applied", confirmed: confirm!.value };
+
   const { error } = await db
     .from("applications")
-    .upsert(
-      { job_id: jobId, status: action.status, decided_at: new Date().toISOString() },
-      { onConflict: "job_id" },
-    );
+    .upsert(row, { onConflict: "job_id" });
 
   if (error) {
     await tg("answerCallbackQuery", {
