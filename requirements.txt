@@ -13,3 +13,4 @@ google-genai==2.20.0
 # الاختبارات
 pytest==8.3.4
 python-docx==1.2.0
+playwright==1.62.0

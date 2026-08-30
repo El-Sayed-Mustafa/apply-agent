@@ -34,6 +34,23 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Cache Chromium
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('requirements.txt') }}
+
+      - name: Install Chromium
+        # تركيب السيرة بيحتاج متصفح. التحميل ~150 ميجا، فبيتخزّن
+        # في الكاش — أول تشغيلة بس هي اللي بتنزّله.
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: python -m playwright install --with-deps chromium
+
+      - name: Install Chromium deps
+        if: steps.browser-cache.outputs.cache-hit == 'true'
+        run: python -m playwright install-deps chromium
+
       - name: Run tests
         # الاختبارات بتشتغل قبل السحب. لو مصدر غيّر شكل الـ API،
         # نعرف من هنا بدل ما نكتشف بعد أسبوع إن الداتا ناقصة.

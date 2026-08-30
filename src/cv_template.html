@@ -56,9 +56,13 @@ h1{ font-size:21pt; font-weight:700; color:var(--ink);
     letter-spacing:-.35pt; line-height:1.02; }
 .role{ font-size:10.4pt; color:var(--muted); margin-top:.9mm;
        letter-spacing:.15pt; }
-.meta{ font-size:8.8pt; color:var(--muted); margin-top:2mm; }
+.meta{ font-size:8.4pt; color:var(--muted); margin-top:2mm; }
 .meta a{ color:var(--muted); text-decoration:none; }
-.meta .sep{ padding:0 1.9mm; opacity:.4; }
+.meta .sep{ padding:0 1.1mm; opacity:.4; }
+/* سطر واحد بالظبط: الفاصل والأيقونات أضيق عن قصد. لو اتلف، بيسيب
+   كلمة واحدة في سطر لوحدها وده أوضح عيب في الترويسة. */
+.meta{ white-space:nowrap; }
+.meta .ic{ margin-right:.7mm; width:2.4mm; height:2.4mm; }
 /* الأيقونة SVG مرسومة، مش حرف — يعني مبتظهرش خالص في استخراج
    النص، فالـ ATS بيقرا الإيميل نضيف من غير رموز قبله */
 .ic{ width:2.6mm; height:2.6mm; vertical-align:-.4mm;

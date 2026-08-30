@@ -17,6 +17,7 @@ import re
 import time
 
 import requests
+from pathlib import Path
 
 API = "https://api.telegram.org/bot{token}/{method}"
 TIMEOUT = 20
@@ -212,13 +213,19 @@ def send_document(buf, filename: str, caption: str,
     if markup:
         import json as _json
         payload["reply_markup"] = _json.dumps(markup)
+    # النوع بيتحدد من الامتداد. لو بعتنا PDF بنوع docx، تليجرام
+    # بيقبله بس بعض العملاء بتفشل في المعاينة.
+    mime = {
+        ".pdf":  "application/pdf",
+        ".docx": ("application/vnd.openxmlformats-officedocument"
+                  ".wordprocessingml.document"),
+    }.get(Path(filename).suffix.lower(), "application/octet-stream")
+
     r = requests.post(
         API.format(token=token, method="sendDocument"),
         data=payload,
-        files={"document": (filename, buf,
-                            "application/vnd.openxmlformats-officedocument"
-                            ".wordprocessingml.document")},
-        timeout=60,
+        files={"document": (filename, buf, mime)},
+        timeout=90,
     )
     data = r.json()
     if not data.get("ok"):
