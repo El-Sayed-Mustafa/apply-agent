@@ -94,12 +94,30 @@ Work mode: {remote}
 def load_cv(path: str | None = None) -> str:
     """
     السيرة كنص YAML. بنبعت المهارات والخبرة بس — مفيش اسم ولا إيميل
-    ولا تليفون. المقيّم مش محتاجهم، وأقل بيانات = أقل تعرّض.
+    ولا تليفون ولا لينكات. المقيّم مش محتاجهم، وأقل بيانات = أقل تعرّض.
+
+    قايمة استبعاد صريحة مش ضمنية: لما اتضاف قسم contact للملف، الاختبار
+    وقع فورًا وقال إن الإيميل بيتسرّب. لو كنا شايلين حقول معروفة بس،
+    كان عدّى بصمت.
     """
     with open(path or CV_PATH, encoding="utf-8") as f:
         cv = yaml.safe_load(f) or {}
-    cv.pop("education", None)
-    return yaml.dump(cv, allow_unicode=True, sort_keys=False, width=100)
+
+    SEND = ("profile", "skills", "not_experienced_with",
+            "experience", "projects", "certificates", "seeking")
+    trimmed = {k: v for k, v in cv.items() if k in SEND}
+
+    # الروابط بتتشال كمان: المقيّم مش هيقيّم أحسن لأنه شايف رابط الريبو،
+    # وفيه اسم حسابك. بتفضل في المستند بس.
+    def strip_urls(node):
+        if isinstance(node, dict):
+            return {k: strip_urls(v) for k, v in node.items() if k != "url"}
+        if isinstance(node, list):
+            return [strip_urls(x) for x in node]
+        return node
+
+    return yaml.dump(strip_urls(trimmed), allow_unicode=True,
+                     sort_keys=False, width=100)
 
 
 def build_prompt(cv_text: str, job: dict) -> str:

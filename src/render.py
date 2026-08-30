@@ -1,12 +1,18 @@
 """
-تركيب المستند.
+تركيب المستند — نسخة طبق الأصل من شكل FlowCV.
 
-مفيش أي توليد هنا. كل كلمة في الملف الناتج جاية من cv.yaml أو من
-معرّفات اختارها الموديل — والمعرّفات اتفحصت قبل ما توصل هنا.
+مفيش أي توليد هنا. كل كلمة جاية من cv.yaml أو من معرّفات اختارها
+الموديل واتفحصت قبل ما توصل.
 
-الشكل مقصود إنه ممل: مفيش جداول ولا أعمدة ولا مربعات نصية. أنظمة
-الـ ATS بتقرا الملف كنص متسلسل، وأي تنسيق ذكي بيبوّظ القراءة —
-وساعتها سيرتك بتتقيّم على نص مشوّه من غير ما تعرف.
+مطابق للـ PDF الأصلي في:
+    الخط     Source Sans (نفس عيلة SourceSansPro اللي في الـ PDF)
+    الصفحة   A4
+    الترتيب  ترويسة · Summary · Experience · Education · Skills
+             · Projects · Certificates · Languages
+    اللينكات مخفية تحت النص — الإيميل والتليفون والحسابات،
+             وكل مشروع تحت اسمه، وكل شهادة تحت اسمها
+
+python-docx مفيهاش دالة لعمل لينك، فالـ XML متكتوب بالإيد تحت.
 """
 from __future__ import annotations
 
@@ -14,136 +20,291 @@ import re
 from io import BytesIO
 
 from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Pt, RGBColor
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.shared import Inches, Pt, RGBColor
 
-ACCENT = RGBColor(0x1A, 0x1A, 0x1A)
-MUTED = RGBColor(0x55, 0x55, 0x55)
+FONT = "Source Sans 3"          # نفس عيلة SourceSansPro في الـ PDF الأصلي
+INK = RGBColor(0x1A, 0x1A, 0x1A)
+MUTED = RGBColor(0x5A, 0x5A, 0x5A)
+LINK = RGBColor(0x2B, 0x2B, 0x2B)   # FlowCV بيخلي اللينكات بلون النص
+RULE = "C8C8C8"
 
-
-def _style(doc: Document) -> None:
-    n = doc.styles["Normal"]
-    n.font.name = "Calibri"
-    n.font.size = Pt(10.5)
-    p = n.paragraph_format
-    p.space_after = Pt(4)
-    p.line_spacing = 1.06
-
-
-def _heading(doc: Document, text: str) -> None:
-    p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(11)
-    p.paragraph_format.space_after = Pt(3)
-    r = p.add_run(text.upper())
-    r.bold = True
-    r.font.size = Pt(9.5)
-    r.font.color.rgb = MUTED
+MARGIN = 0.5
+CONTENT_W = 8.27 - 2 * MARGIN       # A4 ناقص الهوامش
 
 
-def _bullet(doc: Document, text: str) -> None:
-    p = doc.add_paragraph(style="List Bullet")
-    p.paragraph_format.space_after = Pt(2)
-    p.add_run(text)
+# ── XML بالإيد ──────────────────────────────────────────────────────────
 
-
-def build(cv_ctx: dict, bullets: dict, chosen: list[str],
-          headline: str = "") -> BytesIO:
+def _hyperlink(par, text: str, url: str, size=8.5,
+               color=LINK, bold=False, underline=False):
     """
-    ابنِ المستند.
+    لينك حقيقي: النص بيتعرض والرابط مخفي تحته.
 
-    chosen = معرّفات، بالترتيب اللي الموديل شافه مناسب للوظيفة دي.
-    الترتيب هو نص التظبيط: نفس النقط، أولوية مختلفة.
+    python-basedocx مفيهاش API للينكات — لازم نضيف علاقة في ملف
+    العلاقات ونلف الـ run في عنصر w:hyperlink.
     """
+    rid = par.part.relate_to(url, RT.HYPERLINK, is_external=True)
+    link = OxmlElement("w:hyperlink")
+    link.set(qn("r:id"), rid)
+
+    run = OxmlElement("w:r")
+    rPr = OxmlElement("w:rPr")
+
+    fonts = OxmlElement("w:rFonts")
+    for attr in ("w:ascii", "w:hAnsi", "w:cs"):
+        fonts.set(qn(attr), FONT)
+    rPr.append(fonts)
+
+    sz = OxmlElement("w:sz")
+    sz.set(qn("w:val"), str(int(size * 2)))     # نصف نقطة
+    rPr.append(sz)
+
+    col = OxmlElement("w:color")
+    col.set(qn("w:val"), str(color))     # RGBColor بيطبع hex من غير #
+    rPr.append(col)
+
+    if bold:
+        rPr.append(OxmlElement("w:b"))
+    if underline:
+        u = OxmlElement("w:u")
+        u.set(qn("w:val"), "single")
+        rPr.append(u)
+
+    run.append(rPr)
+    t = OxmlElement("w:t")
+    t.text = text
+    t.set(qn("xml:space"), "preserve")
+    run.append(t)
+    link.append(run)
+    par._p.append(link)
+
+
+def _bottom_border(par) -> None:
+    """الخط الرفيع تحت عنوان القسم — علامة FlowCV المميزة."""
+    pPr = par._p.get_or_add_pPr()
+    bdr = OxmlElement("w:pBdr")
+    bottom = OxmlElement("w:bottom")
+    bottom.set(qn("w:val"), "single")
+    bottom.set(qn("w:sz"), "6")
+    bottom.set(qn("w:space"), "2")
+    bottom.set(qn("w:color"), RULE)
+    bdr.append(bottom)
+    pPr.append(bdr)
+
+
+def _no_borders(table) -> None:
+    bdr = OxmlElement("w:tblBorders")
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        e = OxmlElement(f"w:{edge}")
+        e.set(qn("w:val"), "none")
+        bdr.append(e)
+    table._tbl.tblPr.append(bdr)
+
+
+# ── أدوات ───────────────────────────────────────────────────────────────
+
+def _p(container, before=0, after=2):
+    par = container.add_paragraph()
+    f = par.paragraph_format
+    f.space_before = Pt(before)
+    f.space_after = Pt(after)
+    return par
+
+
+def _run(par, text, size=10, bold=False, color=INK, italic=False):
+    r = par.add_run(text)
+    r.bold = bold
+    r.italic = italic
+    r.font.name = FONT
+    r.font.size = Pt(size)
+    r.font.color.rgb = color
+    return r
+
+
+def _section(doc, title: str) -> None:
+    par = _p(doc, before=8, after=3)
+    _run(par, title, size=12, bold=True)
+    _bottom_border(par)
+
+
+def _bullet(container, text: str, size=9.5) -> None:
+    par = container.add_paragraph(style="List Bullet")
+    par.paragraph_format.space_after = Pt(1)
+    par.paragraph_format.left_indent = Inches(0.18)
+    _run(par, text, size=size)
+
+
+def _entry(doc, title: str, rest: str, right: str, url: str | None = None):
+    """سطر عنوان مع التاريخ على اليمين. لو فيه url، العنوان بيبقى لينك."""
+    par = _p(doc, before=5, after=1)
+    par.paragraph_format.tab_stops.add_tab_stop(
+        Inches(CONTENT_W), WD_TAB_ALIGNMENT.RIGHT)
+    if url:
+        _hyperlink(par, title, url, size=10.5, bold=True, color=INK)
+    else:
+        _run(par, title, size=10.5, bold=True)
+    if rest:
+        _run(par, rest, size=10.5)
+    if right:
+        _run(par, "\t" + right, size=9, color=MUTED)
+    return par
+
+
+# ── المستند ─────────────────────────────────────────────────────────────
+
+def build(cv: dict, bullets: dict, chosen: list[str],
+          headline: str = "", summary: str = "") -> BytesIO:
     doc = Document()
-    _style(doc)
+
+    st = doc.styles["Normal"]
+    st.font.name = FONT
+    st.font.size = Pt(10)
+    st.element.rPr.rFonts.set(qn("w:eastAsia"), FONT)
+    st.paragraph_format.space_after = Pt(2)
+    st.paragraph_format.line_spacing = 1.05
 
     for s in doc.sections:
-        s.top_margin = s.bottom_margin = Pt(38)
-        s.left_margin = s.right_margin = Pt(46)
+        s.page_width, s.page_height = Inches(8.27), Inches(11.69)   # A4
+        s.top_margin = s.bottom_margin = Inches(0.45)
+        s.left_margin = s.right_margin = Inches(MARGIN)
 
-    profile = cv_ctx.get("profile") or {}
+    contact = cv.get("contact") or {}
+    profile = cv.get("profile") or {}
 
     # ── الترويسة ──
-    h = doc.add_paragraph()
+    h = _p(doc, after=0)
     h.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    h.paragraph_format.space_after = Pt(1)
-    r = h.add_run(profile.get("name") or "Elsayed Mustafa")
-    r.bold = True
-    r.font.size = Pt(17)
-    r.font.color.rgb = ACCENT
+    _run(h, contact.get("name", ""), size=19, bold=True)
 
-    sub = doc.add_paragraph()
-    sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    sub.paragraph_format.space_after = Pt(2)
-    r = sub.add_run(headline or profile.get("title") or "")
-    r.font.size = Pt(11)
-    r.font.color.rgb = MUTED
+    t = _p(doc, after=3)
+    t.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _run(t, headline or profile.get("title", ""), size=11.5, color=MUTED)
 
-    meta = " · ".join(filter(None, [
-        profile.get("location"),
-        f"{profile.get('years_experience')} yrs experience"
-        if profile.get("years_experience") else None,
-        ", ".join(profile.get("open_to") or []) or None,
-    ]))
-    if meta:
-        m = doc.add_paragraph()
-        m.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        r = m.add_run(meta)
-        r.font.size = Pt(9)
-        r.font.color.rgb = MUTED
+    # سطر الاتصال — الإيميل والتليفون لينكات مخفية
+    c = _p(doc, after=1)
+    c.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    first = True
+    if contact.get("email"):
+        _hyperlink(c, contact["email"], f"mailto:{contact['email']}", color=MUTED)
+        first = False
+    if contact.get("phone"):
+        if not first:
+            _run(c, "  ·  ", size=8.5, color=MUTED)
+        _hyperlink(c, contact["phone"], f"tel:{contact['phone']}", color=MUTED)
+        first = False
+    for extra in (contact.get("location"), profile.get("notes")):
+        if extra:
+            if not first:
+                _run(c, "  ·  ", size=8.5, color=MUTED)
+            _run(c, extra, size=8.5, color=MUTED)
+            first = False
 
-    # ── الخبرة، مجمّعة بمكانها الأصلي ──
-    # النقط اتاختارت مرتّبة بالأهمية، بس المستند لازم يفضل مقروء —
-    # فبنجمّعها تحت الدور بتاعها، مع الحفاظ على ترتيب الأهمية جوّه كل دور.
+    # سطر الحسابات — الاسم ظاهر والرابط مخفي
+    links = contact.get("links") or {}
+    if links:
+        l = _p(doc, after=2)
+        l.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for i, (label, url) in enumerate(links.items()):
+            if i:
+                _run(l, "  ·  ", size=8.5, color=MUTED)
+            _hyperlink(l, label, url, color=MUTED, underline=True)
+
+    # ── Summary ──
+    text = summary or profile.get("summary", "")
+    if text:
+        _section(doc, "Summary")
+        _run(_p(doc, after=2), re.sub(r"\s+", " ", text).strip(), size=9.5)
+
+    # ── ترتيب النقط حسب أهميتها للوظيفة ──
     order = {bid: i for i, bid in enumerate(chosen)}
-    groups: dict[str, list[str]] = {}
+    picked: dict[str, list[str]] = {}
     for bid in chosen:
         b = bullets.get(bid)
         if b:
-            groups.setdefault(b.get("parent") or "", []).append(bid)
+            picked.setdefault(b.get("parent_id", ""), []).append(bid)
 
-    exp = {k: v for k, v in groups.items()
-           if bullets[v[0]].get("block") == "experience"}
-    proj = {k: v for k, v in groups.items()
-            if bullets[v[0]].get("block") == "projects"}
+    # ── Experience ──
+    exp = [e for e in (cv.get("experience") or []) if picked.get(e.get("id"))]
+    exp.sort(key=lambda e: min(order[b] for b in picked[e["id"]]))
+    if exp:
+        _section(doc, "Experience")
+        for e in exp:
+            _entry(doc, e.get("role", ""),
+                   f", {e['company']}" if e.get("company") else "",
+                   "  |  ".join(filter(None, [e.get("period"), e.get("mode")])))
+            for bid in picked[e["id"]]:
+                _bullet(doc, bullets[bid]["text"])
 
-    for title, block in (("Experience", exp), ("Selected Projects", proj)):
-        if not block:
-            continue
-        _heading(doc, title)
-        for parent in sorted(block, key=lambda k: min(order[b] for b in block[k])):
-            p = doc.add_paragraph()
-            p.paragraph_format.space_before = Pt(4)
-            p.paragraph_format.space_after = Pt(1)
-            r = p.add_run(parent)
-            r.bold = True
-            r.font.size = Pt(10.5)
-            for bid in block[parent]:
-                _bullet(doc, bullets[bid].get("text", ""))
+    # ── Education ──
+    for e in (cv.get("education") or []):
+        _section(doc, "Education")
+        _entry(doc, e.get("degree", ""),
+               f", {e['school']}" if e.get("school") else "", e.get("period", ""))
+        if e.get("department"):
+            _run(_p(doc, after=1), e["department"], size=9, color=MUTED)
+        if e.get("project"):
+            _run(_p(doc, after=2), e["project"], size=9.5)
+        break
 
-    # ── المهارات ──
-    skills = cv_ctx.get("skills") or {}
+    # ── Skills — عمودين، زي FlowCV ──
+    skills = {k: v for k, v in (cv.get("skills") or {}).items() if v}
     if skills:
-        _heading(doc, "Skills")
-        for group, items in skills.items():
-            if not items:
-                continue
-            p = doc.add_paragraph()
-            p.paragraph_format.space_after = Pt(1)
-            r = p.add_run(f"{group.replace('_', ' ').title()}:  ")
-            r.bold = True
-            p.add_run(", ".join(str(i) for i in items))
+        _section(doc, "Skills")
+        names = list(skills)
+        rows = (len(names) + 1) // 2
+        table = doc.add_table(rows=rows, cols=2)
+        table.alignment = WD_TABLE_ALIGNMENT.LEFT
+        table.autofit = False
+        _no_borders(table)
+        for i, name in enumerate(names):
+            cell = table.cell(i % rows, i // rows)
+            cell.width = Inches(CONTENT_W / 2)
+            head = cell.paragraphs[0]
+            head.paragraph_format.space_after = Pt(0)
+            _run(head, name.replace("_", " ").title(), size=9.5, bold=True)
+            _bullet(cell, ", ".join(str(x) for x in skills[name]), size=9)
 
-    # ── التعليم ──
-    edu = cv_ctx.get("education") or []
-    if edu:
-        _heading(doc, "Education")
-        for e in edu:
-            p = doc.add_paragraph()
-            r = p.add_run(e.get("degree", ""))
-            r.bold = True
-            if e.get("note"):
-                p.add_run(f" — {e['note']}")
+    # ── Projects — اسم المشروع لينك للريبو ──
+    proj = [p for p in (cv.get("projects") or []) if picked.get(p.get("id"))]
+    proj.sort(key=lambda p: min(order[b] for b in picked[p["id"]]))
+    if proj:
+        _section(doc, "Projects")
+        for pr in proj:
+            _entry(doc, pr.get("name", ""), "", "", url=pr.get("url"))
+            if pr.get("stack"):
+                _run(_p(doc, after=1), pr["stack"], size=8.5,
+                     color=MUTED, italic=True)
+            for bid in picked[pr["id"]]:
+                _bullet(doc, bullets[bid]["text"])
+
+    # ── Certificates — كل واحدة لينك للتحقق ──
+    certs = cv.get("certificates") or []
+    if certs:
+        _section(doc, "Certificates")
+        for c in certs:
+            if isinstance(c, str):
+                _bullet(doc, c)
+                continue
+            par = doc.add_paragraph(style="List Bullet")
+            par.paragraph_format.space_after = Pt(1)
+            par.paragraph_format.left_indent = Inches(0.18)
+            if c.get("url"):
+                _hyperlink(par, c.get("name", ""), c["url"], size=9.5,
+                           color=INK, underline=True)
+            else:
+                _run(par, c.get("name", ""), size=9.5)
+            if c.get("issuer"):
+                _run(par, f"  —  {c['issuer']}", size=9.5, color=MUTED)
+
+    # ── Languages ──
+    langs = profile.get("languages") or []
+    if langs:
+        _section(doc, "Languages")
+        _run(_p(doc, after=2), "   ·   ".join(str(x) for x in langs), size=9.5)
 
     buf = BytesIO()
     doc.save(buf)

@@ -102,7 +102,8 @@ def load_catalogue(path: str | None = None) -> tuple[dict[str, dict], str]:
                 bid = b.get("id")
                 if not bid:
                     continue
-                bullets[bid] = {**b, "parent": head, "block": block}
+                bullets[bid] = {**b, "parent": head,
+                                "parent_id": entry.get("id", ""), "block": block}
                 tags = ", ".join(b.get("tags") or [])
                 lines.append(f"    {bid}: {b.get('text','')}"
                              + (f"   ({tags})" if tags else ""))
@@ -110,12 +111,22 @@ def load_catalogue(path: str | None = None) -> tuple[dict[str, dict], str]:
     return bullets, "\n".join(lines)
 
 
-def context(path: str | None = None) -> dict:
-    """المهارات والملف الشخصي — سياق للموديل، مش مادة للاختيار."""
+def full(path: str | None = None) -> dict:
+    """الملف كامل — للتركيب بس. فيه بيانات الاتصال."""
     with open(path or CV_PATH, encoding="utf-8") as f:
-        cv = yaml.safe_load(f) or {}
-    return {"profile": cv.get("profile", {}), "skills": cv.get("skills", {}),
-            "seeking": cv.get("seeking", {}), "education": cv.get("education", [])}
+        return yaml.safe_load(f) or {}
+
+
+def context(path: str | None = None) -> dict:
+    """
+    اللي بيتبعت للموديل. **من غير contact** — تقليل بيانات:
+    المقيّم مش هيقيّم أحسن لأنه عارف تليفونك.
+    """
+    cv = full(path)
+    return {"profile": {k: v for k, v in (cv.get("profile") or {}).items()},
+            "skills": cv.get("skills", {}),
+            "not_experienced_with": cv.get("not_experienced_with", []),
+            "seeking": cv.get("seeking", {})}
 
 
 # ── الاختيار ────────────────────────────────────────────────────────────

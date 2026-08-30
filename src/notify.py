@@ -121,7 +121,7 @@ def _tailored_cv(db, job: dict):
             print(f"      ⚠️ معرّفات مخترعة اتشالت: {result.dropped}")
 
         bullets, _ = tailor.load_catalogue()
-        buf = render.build(tailor.context(), bullets,
+        buf = render.build(tailor.full(), bullets,
                            result.bullet_ids, result.headline)
         return buf, render.filename(job), result
 

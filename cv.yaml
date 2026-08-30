@@ -1,112 +1,239 @@
 # ═══════════════════════════════════════════════════════════════════════
-# سيرتك الذاتية كبيانات منظّمة — مش كنص.
+# سيرتك الذاتية كبيانات منظّمة.
 #
-# ⚠️  راجع الملف ده كويس. كل تقييم في المنظومة كلها مبني عليه.
-#     أي حاجة غلط هنا = كل الأرقام غلط.
+# المصدر: FlowCV Resume 2026-08-30 + github.com/El-Sayed-Mustafa
 #
-# ليه منظّم ومش نص؟ عشان لما نوصل لتظبيط الـ CV لكل وظيفة، التظبيط
-# هيبقى **اختيار وترتيب** من النقط اللي تحت — مش كتابة جديدة. وبكده
-# اختلاق خبرة مش موجودة يبقى مستحيل هندسيًا، مش مجرد ممنوع في الـ prompt.
+# ⚠️  كل تقييم وكل مستند في المنظومة مبني على الملف ده. البيانات هنا
+#     بتتعامل كحقيقة مطلقة — مفيش حاجة بتراجعها.
 #
-# كل نقطة ليها معرّف (b1, b2, ...). التظبيط بيرجّع معرّفات بس.
+# كل نقطة ليها معرّف ثابت (b1, b2, …). التظبيط بيرجّع معرّفات بس،
+# والنص بيتقرا من هنا. عشان كده الاختلاق مستحيل هندسيًا.
+#
+# 🔒 متغيّرش معرّف موجود — الاختيارات القديمة في deliveries بتشير ليه.
+#    ضيف معرّفات جديدة في الآخر بس.
 # ═══════════════════════════════════════════════════════════════════════
+
+# بيانات الاتصال — للمستند بس، **مبتتبعتش للموديل أبدًا**
+contact:
+  name: "Elsayed Mustafa"
+  email: "elsayed.mustafa.ibrahim@gmail.com"
+  phone: "+20 155 985 0933"
+  location: "Cairo, Egypt"
+  # الترتيب ده هو اللي بيظهر في الترويسة. الاسم بيتعرض، والرابط مخفي تحته.
+  links:
+    LinkedIn:  "https://www.linkedin.com/in/el-sayed-mustafa/"
+    GitHub:    "https://github.com/El-Sayed-Mustafa"
+    Upwork:    "https://www.upwork.com/freelancers/elsayedm7"
+    Portfolio: "https://el-sayed-mustafa.github.io/MyPortflio/"
 
 profile:
   title: "AI & Automation Engineer"
-  years_experience: 3
-  location: "Egypt"
+  years_experience: 2
+  location: "Cairo, Egypt"
   languages: ["Arabic (native)", "English (professional)"]
   open_to: ["remote", "relocation", "visa sponsorship"]
+  notes: "Completed military service"
+  summary: >
+    AI & Automation Engineer shipping production LLM and automation systems
+    end to end: backend, data, retrieval, and the integrations that hold them
+    together. Owns solutions from requirements and data modeling through
+    integration, testing, and delivery.
 
 # ── المهارات ───────────────────────────────────────────────────────────
-# اكتب اللي بتعرفه فعلاً بس. المقيّم بياخد الكلام ده كحقيقة.
 
 skills:
-  languages:   [Python, SQL, JavaScript, "Google Apps Script"]
-  ai:
-    - "LLM APIs (OpenAI, Gemini)"
-    - "Ollama / local models"
-    - "RAG"
-    - "hybrid retrieval"
-    - "Whisper (speech-to-text)"
-    - "prompt engineering"
-    - "structured output"
-  automation:  [n8n, "REST APIs", Webhooks, "Zapier"]
-  data:        [Supabase, PostgreSQL, "ETL pipelines", "data modeling", "Power BI", Excel]
-  tools:       [Git, Docker, "CRM systems", "Linux basics"]
+  python_backend:  [Python, FastAPI, "REST APIs", Authentication, Webhooks]
+  automation:      [Playwright, Selenium, BeautifulSoup, "Google Apps Script",
+                    "Data pipelines", "Resumable workflows"]
+  databases:       [PostgreSQL, Supabase, SQL, SQLite, Pandas, NumPy]
+  ai_ml:           ["LLM APIs", "RAG", "AI agents", "Prompt engineering",
+                    Ollama, Whisper, LightGBM, "scikit-learn", NLP,
+                    "Model evaluation", "Structured output"]
+  integrations:    ["Amazon SP-API", "eBay API", "Google Workspace APIs",
+                    "Green API", "Telegram Bots", "Solana APIs"]
+  business_systems: ["CRM platforms", "Inventory & pricing systems",
+                     "Role-based access control", "Audit history",
+                     "Operational dashboards"]
+  other:           [Git, Docker, Streamlit, "React/TypeScript", Tauri, Linux]
 
+# ⚠️ اللي مش عندك. المقيّم بيستخدمها عشان مايبالغش.
 not_experienced_with:
-  - "Swift / iOS / mobile development"
+  - "Swift / iOS / native mobile development"
   - "Spark / Hadoop / distributed big data"
   - "Kubernetes in production"
-  - "PyTorch / TensorFlow model training from scratch"
+  - "Deep learning training from scratch (PyTorch/TensorFlow)"
+  - "n8n / Zapier (لسه ماستخدمتهاش في شغل حقيقي)"
 
 # ── الخبرة ─────────────────────────────────────────────────────────────
-# كل نقطة معرّف ثابت. متغيّرش المعرّفات بعد ما نبدأ نستخدمها.
 
 experience:
   - id: exp1
     role: "AI & Automation Engineer"
-    company: "—"
-    period: "2024 — الآن"
+    company: "BlueBug"
+    period: "02/2026 — Present"
+    mode: "Remote"
     bullets:
       - id: b1
-        text: "بناء أنظمة أتمتة داخلية بتربط CRMs وقواعد بيانات وAPIs خارجية"
-        tags: [automation, apis, integration]
+        text: "Build and maintain three internal AI and automation products in Python, FastAPI and Supabase"
+        tags: [python, fastapi, supabase, ownership]
       - id: b2
-        text: "تصميم ونشر تكاملات LLM في سير عمل تشغيلي حقيقي"
-        tags: [llm, integration, production]
+        text: "Built a review-intelligence system tracking ~10,000 products and reconciling 800,000 reviews against 1.1M snapshots"
+        tags: [data, scale, pipelines, reconciliation]
       - id: b3
-        text: "بناء وصيانة خطوط ETL على Supabase و PostgreSQL"
-        tags: [data, etl, sql]
+        text: "Trained a 37-feature LightGBM model that predicts the exact displayed star rating 80.7% of the time on unseen products (0.034 MAE)"
+        tags: [ml, lightgbm, evaluation, metrics]
       - id: b4
-        text: "أتمتة عمليات متكررة بـ n8n و Google Apps Script"
-        tags: [automation, n8n]
+        text: "Built a Solana research platform holding dashboard queries at 0.84s against 10+ GB of data"
+        tags: [performance, data, dashboards, realtime]
+      - id: b5
+        text: "Shipped every trading strategy behind paper-trading validation and two independent safety switches"
+        tags: [safety, risk, testing, production]
+      - id: b6
+        text: "Designed resumable scraping workflows with captcha/TOTP handling, account rotation and retry logic"
+        tags: [automation, scraping, resilience, playwright]
 
   - id: exp2
-    role: "Data Analyst"
-    company: "—"
-    period: "2023 — 2024"
+    role: "AI Automation Developer"
+    company: "Upwork (freelance)"
+    period: "06/2024 — Present"
+    mode: "Remote"
     bullets:
-      - id: b5
-        text: "بناء لوحات تحليلية وتقارير لأصحاب القرار"
-        tags: [data, bi, reporting]
-      - id: b6
-        text: "تنظيف ونمذجة بيانات من مصادر متعددة"
-        tags: [data, modeling, sql]
+      - id: b7
+        text: "Delivered 6+ client platforms end to end, from first call to launch; earned Upwork Rising Talent"
+        tags: [delivery, client-facing, ownership, communication]
+      - id: b8
+        text: "Rebuilt a bilingual field-service CRM in Bahrain: migrated 17,000+ records into 17 secured tables and cut the slowest page from 5.6s to 0.56s"
+        tags: [crm, postgres, performance, migration, i18n]
+      - id: b9
+        text: "Built inventory and marketplace-pricing platforms across Amazon, eBay and Shopify covering 25,000+ items"
+        tags: [integrations, marketplaces, apis, pricing]
+      - id: b10
+        text: "Built a resumable lead pipeline covering 2,662 towns with classification, enrichment, deduplication and QA reporting"
+        tags: [pipelines, scraping, data-quality, resumable]
+      - id: b11
+        text: "Delivered a wholesale ops platform with multi-format supplier ingestion, GTIN validation and transaction-safe workflows, covered by 162 automated tests"
+        tags: [testing, data-validation, transactions, backend]
+      - id: b12
+        text: "Worked directly with non-technical clients to turn vague requirements into shipped systems"
+        tags: [communication, requirements, client-facing, stakeholder]
 
 # ── المشاريع ───────────────────────────────────────────────────────────
 
 projects:
   - id: proj1
     name: "Freelancer Meeting Copilot"
+    stack: "Python, React/TypeScript, Tauri, SQLite, Ollama, Whisper"
+    url: "https://github.com/El-Sayed-Mustafa/meeting-copilot"
     bullets:
-      - id: b7
-        text: "مساعد اجتماعات محلي بالكامل: Whisper للتفريغ + Ollama للتلخيص"
-        tags: [llm, whisper, local-models, privacy]
-      - id: b8
-        text: "استرجاع هجين (كلمات مفتاحية + دلالي) فوق تخزين RAG"
-        tags: [rag, retrieval, vector-search]
+      - id: b13
+        text: "Built a local-first AI meeting copilot: Whisper transcription and Ollama inference run entirely on the user's machine, so no call data ever leaves the laptop"
+        tags: [llm, local-models, privacy, whisper, ollama]
+      - id: b14
+        text: "Implemented scoped retrieval so answers come only from that client's own notes, with grounding controls that refuse to state anything unconfirmed"
+        tags: [rag, retrieval, grounding, hallucination-control]
+      - id: b15
+        text: "Shipped it as a cross-platform desktop app with Tauri and a React/TypeScript front end"
+        tags: [desktop, tauri, typescript, react]
 
   - id: proj2
-    name: "Apply Agent"
+    name: "Amazon Rating Prediction & Simulation Tool"
+    stack: "LightGBM, Python, Pandas, SQLite, JavaScript"
+    url: "https://github.com/El-Sayed-Mustafa/bluebug-rating-showcase"
     bullets:
-      - id: b9
-        text: "منظومة بتسحب الوظايف من بوردات التوظيف العامة، بتقيّمها بـ LLM، وبتجهّز التقديم"
-        tags: [llm, automation, python, evaluation]
-      - id: b10
-        text: "تقييم منهجي: golden set، قياس AUC، ومقارنة الموديل بـ baseline بسيط"
-        tags: [evaluation, measurement, llm]
+      - id: b16
+        text: "Engineered 37 features and trained a LightGBM model reaching 80.7% exact-match accuracy and 0.034 MAE on unseen products"
+        tags: [ml, feature-engineering, lightgbm, metrics]
+      - id: b17
+        text: "Built an interactive tool for rating estimation, review-impact analysis, target simulations and confidence reporting"
+        tags: [tooling, simulation, dashboards, product]
 
-# ── التعليم ────────────────────────────────────────────────────────────
+  - id: proj3
+    name: "Solana Market Intelligence & Paper-Trading Platform"
+    stack: "Python, WebSockets, Supabase, Streamlit, ML"
+    url: "https://github.com/El-Sayed-Mustafa/solana-market-bot-showcase"
+    bullets:
+      - id: b18
+        text: "Built a real-time scanner integrating DexScreener, Birdeye, GeckoTerminal, Helius WebSockets and Jupiter quotes"
+        tags: [realtime, websockets, integrations, apis]
+      - id: b19
+        text: "Implemented token discovery, liquidity and momentum filters, risk controls, backtesting and experiment tracking"
+        tags: [ml, backtesting, risk, experimentation]
+
+  - id: proj4
+    name: "Amazon ASIN & Review Intelligence Platform"
+    stack: "Python, Playwright, Supabase, Google Sheets APIs"
+    url: "https://github.com/El-Sayed-Mustafa/review-pipeline-showcase"
+    bullets:
+      - id: b20
+        text: "Built six scraping and auditing tools for ASIN details, review collection, variation analysis, listing health and gap detection across marketplaces"
+        tags: [scraping, playwright, tooling, marketplaces]
+      - id: b21
+        text: "Synchronised reporting across Supabase and Google Sheets so operators could work in the tool they already used"
+        tags: [integrations, sheets, operations, reporting]
+
+  - id: proj5
+    name: "Apply Agent"
+    stack: "Python, Supabase, Gemini, GitHub Actions, Telegram, Deno"
+    url: "https://github.com/El-Sayed-Mustafa/apply-agent"
+    bullets:
+      - id: b22
+        text: "Built a job-search system pulling from 17 public ATS and aggregator sources, scoring each role against a structured CV with an LLM"
+        tags: [llm, automation, python, pipelines]
+      - id: b23
+        text: "Designed CV tailoring as constrained selection over a closed set of bullet ids, making fabricated experience structurally impossible rather than merely discouraged"
+        tags: [llm, constrained-output, safety, design]
+      - id: b24
+        text: "Built a self-expanding company-discovery loop that resolves company names to ATS endpoints and registers them permanently"
+        tags: [automation, discovery, apis, systems]
+      - id: b25
+        text: "Secured a public webhook with a shared secret, chat allowlisting and strict payload validation, verified against the deployed endpoint"
+        tags: [security, webhooks, deno, edge-functions]
+      - id: b26
+        text: "Covered the system with 258 offline tests including recorded-fixture contract tests that fail when an upstream API changes shape"
+        tags: [testing, reliability, contract-tests]
+
+  - id: proj6
+    name: "Bahrain Pest Control CRM"
+    stack: "Supabase, PostgreSQL, Apps Script, Green API"
+    url: "https://github.com/El-Sayed-Mustafa/pest-control-crm-bahrain"
+    bullets:
+      - id: b27
+        text: "Designed 17 secured Supabase tables with role-based access control and audit history for a bilingual field-service team"
+        tags: [postgres, rbac, schema-design, i18n]
+
+  - id: proj7
+    name: "Wahaca Kitchen Performance Reporting"
+    stack: "Google Apps Script, Sheets"
+    url: "https://github.com/El-Sayed-Mustafa/wahaca-kds-dashboard"
+    bullets:
+      - id: b28
+        text: "Built an automated kitchen-performance reporting pipeline for a multi-site restaurant group"
+        tags: [automation, apps-script, reporting, operations]
+
+# ── التعليم والشهادات ──────────────────────────────────────────────────
 
 education:
-  - degree: "بكالوريوس هندسة"
-    note: "مشروع تخرج — راجع التفاصيل وضيفها هنا"
+  - degree: "B.Sc. in Computer and Information Science"
+    school: "Ain Shams University"
+    period: "2020 — 2024"
+    department: "Scientific Computing"
+    project: "Graduation Project — Data-Driven English Practice App: processed datasets to simulate conversation and grammar correction, applied data-driven techniques to improve accuracy and feedback, and gained experience in data preparation, model fine-tuning and result analysis."
+
+certificates:
+  - name: "Machine Learning Specialization"
+    issuer: "DeepLearning.AI"
+    url: "https://www.coursera.org/account/accomplishments/specialization/GGBNJ8VWY4PG"
+  - name: "Natural Language Processing with Classification and Vector Spaces"
+    issuer: "DeepLearning.AI"
+    url: "https://www.coursera.org/account/accomplishments/verify/LCC4ZVSU5R5Z"
+  - name: "Advanced SQL Querying"
+    issuer: "Maven Analytics"
+    url: "https://certificates.mavenanalytics.io/75ee8eba-7a1f-4666-b90f-df4ff6c9ed42"
+  - name: "Associate Data Analyst in SQL"
+    issuer: "DataCamp"
+    url: "https://www.datacamp.com/certificate/DAA0019295316175"
 
 # ── اللي بتدوّر عليه ────────────────────────────────────────────────────
-# المقيّم بيستخدمها كسياق: وظيفة بتطابق مهاراتك بس مالهاش علاقة
-# باللي عايزه = مش تطابق كويس.
 
 seeking:
   roles:
@@ -116,7 +243,8 @@ seeking:
     - "Backend Engineer (AI-focused)"
     - "Data Engineer"
     - "Forward Deployed Engineer"
+    - "Solutions Engineer"
   avoid:
-    - "أدوار موبايل أو frontend خالصة"
-    - "أدوار بحث بتتطلب دكتوراه"
-    - "أدوار إدارية من غير شغل تقني"
+    - "pure mobile or frontend roles"
+    - "research roles requiring a PhD"
+    - "management roles with no hands-on engineering"

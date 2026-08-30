@@ -14,9 +14,12 @@ import pytest
 from src import render, tailor
 
 KNOWN = {
-    "b1": {"text": "بناء أنظمة أتمتة", "parent": "AI Engineer", "block": "experience"},
-    "b2": {"text": "تكاملات LLM", "parent": "AI Engineer", "block": "experience"},
-    "b7": {"text": "Meeting Copilot", "parent": "Copilot", "block": "projects"},
+    "b1": {"text": "بناء أنظمة أتمتة", "parent": "AI Engineer",
+           "parent_id": "exp1", "block": "experience"},
+    "b2": {"text": "تكاملات LLM", "parent": "AI Engineer",
+           "parent_id": "exp1", "block": "experience"},
+    "b7": {"text": "Meeting Copilot", "parent": "Copilot",
+           "parent_id": "proj1", "block": "projects"},
 }
 
 
@@ -106,13 +109,14 @@ def test_context_has_no_bullets():
     """
     ctx = tailor.context()
     assert "experience" not in ctx and "projects" not in ctx
+    assert "contact" not in ctx          # تقليل البيانات
     assert "skills" in ctx
 
 
 # ── المستند ─────────────────────────────────────────────────────────────
 
 def test_document_builds():
-    buf = render.build(tailor.context(), KNOWN, ["b1", "b7"], "AI Engineer")
+    buf = render.build(tailor.full(), KNOWN, ["b1", "b7"], "AI Engineer")
     data = buf.getvalue()
     assert data[:2] == b"PK"          # docx = أرشيف zip
     assert len(data) > 5_000
@@ -125,7 +129,7 @@ def test_document_contains_only_chosen_bullets():
     بيسرّب محتوى — وده أخطر من معرّف مخترع لأنه شكله سليم.
     """
     from docx import Document
-    buf = render.build(tailor.context(), KNOWN, ["b1"], "")
+    buf = render.build(tailor.full(), KNOWN, ["b1"], "")
     text = "\n".join(p.text for p in Document(buf).paragraphs)
     assert KNOWN["b1"]["text"] in text
     assert KNOWN["b2"]["text"] not in text
@@ -133,7 +137,7 @@ def test_document_contains_only_chosen_bullets():
 
 
 def test_document_handles_empty_selection():
-    assert render.build(tailor.context(), KNOWN, [], "").getvalue()[:2] == b"PK"
+    assert render.build(tailor.full(), KNOWN, [], "").getvalue()[:2] == b"PK"
 
 
 def test_filename_is_clean():
