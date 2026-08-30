@@ -283,3 +283,19 @@ def test_every_bullet_has_a_rank():
     bullets, _ = tailor.load_catalogue()
     missing = [b for b, m in bullets.items() if "rank" not in m]
     assert not missing, f"نقط من غير rank: {missing}"
+
+
+def test_inline_lists_have_real_separators():
+    """
+    الفاصل لازم يكون **نص** مش مسافة CSS.
+
+    وقعنا في الفخ ده تلات مرات: grid columns، وflex gap، وpadding
+    على الفاصل. كلهم بيبانوا مظبوطين على الشاشة وبيتلحموا في
+    الاستخراج — "Arabic (native)English (professional)".
+    """
+    assert "&nbsp;" in render.SEP, "الفاصل لازم يحتوي مسافة حقيقية"
+    h = render.build_html(tailor.full(), KNOWN, ["b1"], "")
+    for section in ("Certificates", "Languages"):
+        i = h.find(f">{section}<")
+        assert i > 0
+        assert "&nbsp;·&nbsp;" in h[i:i + 900], f"{section} من غير فاصل نصي"

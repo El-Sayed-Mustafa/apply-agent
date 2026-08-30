@@ -95,7 +95,7 @@ experience:
     bullets:
       - id: b1
         rank: 1
-        text: "Build and own three internal AI and automation products in Python, FastAPI and Supabase"
+        text: "Build and own three internal AI and automation products in Python, FastAPI and Supabase, from design to delivery"
         tags: [python, fastapi, supabase, ownership]
       - id: b2
         rank: 2
@@ -103,19 +103,19 @@ experience:
         tags: [data, scale, pipelines, reconciliation]
       - id: b3
         rank: 3
-        text: "37-feature model predicting the exact star rating 80.7% of the time on unseen products, 0.034 MAE"
+        text: "37-feature model predicting the exact displayed star rating 80.7% of the time on unseen products, 0.034 MAE"
         tags: [ml, lightgbm, evaluation, metrics]
       - id: b4
         rank: 4
-        text: "Research platform holding dashboard queries at 0.84s against 10+ GB of data"
+        text: "Solana research platform holding dashboard queries at 0.84s against 10+ GB of streamed market data"
         tags: [performance, data, dashboards, realtime]
       - id: b5
         rank: 6
-        text: "Shipped every strategy behind paper validation and two independent safety switches"
+        text: "Shipped every trading strategy behind paper-trading validation and two independent safety switches before live use"
         tags: [safety, risk, testing, production]
       - id: b6
         rank: 5
-        text: "Resumable scraping with captcha/TOTP handling, account rotation and retry logic"
+        text: "Resumable scraping workflows with captcha/TOTP handling, account rotation, retry logic and synchronised reporting"
         tags: [automation, scraping, resilience, playwright]
 
   - id: exp2
@@ -126,7 +126,7 @@ experience:
     bullets:
       - id: b7
         rank: 1
-        text: "Delivered 6+ client platforms end to end, first call to launch — Upwork Rising Talent"
+        text: "Delivered 6+ client platforms end to end, from first call to launch — earned Upwork Rising Talent"
         tags: [delivery, client-facing, ownership, communication]
       - id: b8
         rank: 2
@@ -134,19 +134,19 @@ experience:
         tags: [crm, postgres, performance, migration, i18n]
       - id: b9
         rank: 3
-        text: "Inventory and pricing platforms across Amazon, eBay and Shopify covering 25,000+ items"
+        text: "Inventory and marketplace-pricing platforms across Amazon, eBay and Shopify covering 25,000+ items"
         tags: [integrations, marketplaces, apis, pricing]
       - id: b10
         rank: 5
-        text: "Resumable lead pipeline across 2,662 towns with enrichment, deduplication and QA reporting"
+        text: "Resumable lead pipeline across 2,662 towns with classification, enrichment, deduplication and QA reporting"
         tags: [pipelines, scraping, data-quality, resumable]
       - id: b11
         rank: 4
-        text: "Wholesale ops platform with GTIN validation and transaction-safe workflows, 162 automated tests"
+        text: "Wholesale ops platform with multi-format supplier ingestion, GTIN validation and 162 automated tests"
         tags: [testing, data-validation, transactions, backend]
       - id: b12
         rank: 6
-        text: "Turned vague requirements from non-technical clients into shipped systems"
+        text: "Turned vague requirements from non-technical clients into shipped systems, owning scope and delivery end to end"
         tags: [communication, requirements, client-facing, stakeholder]
 
 # ── المشاريع ───────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ projects:
         tags: [rag, retrieval, grounding, hallucination-control]
       - id: b15
         rank: 3
-        text: "Shipped as a cross-platform desktop app on Tauri and React/TypeScript"
+        text: "Shipped as a cross-platform desktop app on Tauri with a React/TypeScript front end and SQLite storage"
         tags: [desktop, tauri, typescript, react]
 
   - id: proj2
@@ -181,7 +181,7 @@ projects:
         tags: [ml, feature-engineering, lightgbm, metrics]
       - id: b17
         rank: 2
-        text: "Interactive tool for rating estimation, review-impact analysis and target simulations"
+        text: "Interactive tool for rating estimation, review-impact analysis, target simulations and confidence reporting"
         tags: [tooling, simulation, dashboards, product]
 
   - id: proj3
@@ -191,7 +191,7 @@ projects:
     bullets:
       - id: b18
         rank: 1
-        text: "Real-time scanner over DexScreener, Birdeye, Helius WebSockets and Jupiter quotes"
+        text: "Real-time scanner over DexScreener, Birdeye, GeckoTerminal, Helius WebSockets and Jupiter quote feeds"
         tags: [realtime, websockets, integrations, apis]
       - id: b19
         rank: 2
@@ -209,7 +209,7 @@ projects:
         tags: [scraping, playwright, tooling, marketplaces]
       - id: b21
         rank: 2
-        text: "Synchronised reporting across Supabase and Google Sheets, in the tool operators already used"
+        text: "Synchronised reporting across Supabase and Google Sheets so operators kept working in the tool they already used"
         tags: [integrations, sheets, operations, reporting]
 
   - id: proj5
@@ -231,11 +231,11 @@ projects:
         tags: [automation, discovery, apis, systems]
       - id: b25
         rank: 4
-        text: "Secured a public webhook with a shared secret, chat allowlisting and strict payload validation"
+        text: "Secured a public webhook with a shared secret, chat allowlisting and strict payload validation on every call"
         tags: [security, webhooks, deno, edge-functions]
       - id: b26
         rank: 5
-        text: "258 offline tests, including contract tests that fail when an upstream API changes shape"
+        text: "258 offline tests, including recorded-fixture contract tests that fail when an upstream API changes shape"
         tags: [testing, reliability, contract-tests]
 
   - id: proj6
@@ -245,7 +245,7 @@ projects:
     bullets:
       - id: b27
         rank: 1
-        text: "17 secured tables with role-based access control and audit history for a bilingual field team"
+        text: "17 secured Supabase tables with role-based access control and audit history for a bilingual field-service team"
         tags: [postgres, rbac, schema-design, i18n]
 
   - id: proj7
@@ -255,7 +255,7 @@ projects:
     bullets:
       - id: b28
         rank: 1
-        text: "Automated kitchen-performance reporting for a multi-site restaurant group"
+        text: "Automated kitchen-performance reporting for a multi-site restaurant group on Google Apps Script and Sheets"
         tags: [automation, apps-script, reporting, operations]
 
 # ── التعليم والشهادات ──────────────────────────────────────────────────

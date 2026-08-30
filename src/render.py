@@ -242,34 +242,39 @@ def _education(cv: dict) -> str:
 
 def _certificates(cv: dict) -> str:
     """
-    كل شهادة سطر لوحدها.
+    متصلة في تدفق واحد بفواصل نقطية بمسافات حقيقية.
 
-    النسخة اللي قبلها كانت سطر واحد مفصول بنقط — والفاصل بيختفي في
-    استخراج النص، فالشهادات بتلتزق: "DeepLearning.AI Advanced SQL".
-    السطر المستقل مبيلتبسش على أي مستخرِج.
+    الشكل الأول (سطر لكل شهادة) كان بيسيب 60% من عرض السطر فاضي ×4.
+    والشكل قبله كان بيلتزق في الاستخراج لأن الفاصل كان padding في
+    الـ CSS — والـ padding بيختفي وقت الاستخراج.
+
+    الحل: نقطة بمسافتين حقيقيتين (&nbsp;) حواليها. بتفضل موجودة في
+    النص المستخرج، والسطر بيتملى.
     """
     items = []
     for c in (cv.get("certificates") or []):
         if isinstance(c, str):
-            items.append(f"<li>{esc(c)}</li>")
+            items.append(esc(c))
             continue
-        items.append(
-            f'<li>{link(c.get("name"), c.get("url"))}'
-            + (f'<span class="by"> — {esc(c["issuer"])}</span>'
-               if c.get("issuer") else "") + "</li>")
+        items.append(link(c.get("name"), c.get("url"))
+                     + (f'<span class="by"> — {esc(c["issuer"])}</span>'
+                        if c.get("issuer") else ""))
     if not items:
         return ""
     return ('<section><h2>Certificates</h2>'
-            f'<ul class="tight">{"".join(items)}</ul></section>')
+            f'<div class="inline">{SEP.join(items)}</div></section>')
 
 
 def _languages(cv: dict) -> str:
     langs = (cv.get("profile") or {}).get("languages") or []
     if not langs:
         return ""
-    items = "".join(f"<li>{esc(x)}</li>" for x in langs)
+    # تدفق نصي واحد بفاصل حقيقي — مش flex بـ gap.
+    # الـ gap مسافة بصرية مش نص، فالاستخراج بيطلّع
+    # "Arabic (native)English (professional)" ملزوقين.
     return ('<section><h2>Languages</h2>'
-            f'<ul class="tight">{items}</ul></section>')
+            f'<div class="inline">{SEP.join(esc(x) for x in langs)}</div>'
+            "</section>")
 
 
 # ── البناء ──────────────────────────────────────────────────────────────
