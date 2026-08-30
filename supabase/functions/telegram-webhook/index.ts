@@ -40,6 +40,19 @@ const CONFIRM: Record<string, { value: boolean; label: string; toast: string }> 
   n: { value: false, label: "❌ مكمّلش", toast: "اتسجّل" },
 };
 
+// النتيجة الفعلية بعد التقديم. مع confirmed دي الحقيقة الأرضية
+// اللي كل قياس عن دقة التقييم بيتبني عليها.
+//
+// من غيرها بنقيس "التقييم بيتوقع إنه هيقدّم" بس — مش "بيتوقع إنه
+// هيتقبل"، وهي دي اللي بتهم.
+const OUTCOME: Record<string, { value: string; label: string; toast: string }> = {
+  or: { value: "reply",     label: "📧 رد",     toast: "اتسجّل" },
+  oi: { value: "interview", label: "🎤 مقابلة", toast: "ممتاز 🎉" },
+  of: { value: "offer",     label: "🏆 عرض",    toast: "مبروك 🎉" },
+  oj: { value: "rejected",  label: "❌ رفض",    toast: "اتسجّل" },
+  on: { value: "none",      label: "🔇 مفيش رد", toast: "اتسجّل" },
+};
+
 async function tg(method: string, body: unknown) {
   return fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
     method: "POST",
@@ -82,7 +95,8 @@ Deno.serve(async (req) => {
 
   // ── الطبقة ٣: شكل البيانات ──
   // الشكل المتوقع: "a:123" — حرف واحد ونقطتين ورقم.
-  const m = /^([aslcn]):(\d{1,12})$/.exec(String(cq.data ?? ""));
+  // حرف أو حرفين، نقطتين، رقم. الحرفين للنتايج (or · oi · of · oj · on)
+  const m = /^([a-z]{1,2}):(\d{1,12})$/.exec(String(cq.data ?? ""));
   if (!m) {
     await tg("answerCallbackQuery", { callback_query_id: cq.id, text: "?" });
     return new Response("ok");
@@ -92,13 +106,24 @@ Deno.serve(async (req) => {
   const jobId = Number(m[2]);
   const decide = DECIDE[key];
   const confirm = CONFIRM[key];
-  const action = decide ?? confirm!;
+  const outcome = OUTCOME[key];
+  const action = decide ?? confirm ?? outcome;
+
+  // مفتاح مش معروف — نتجاهل من غير ما نلمس الداتابيز
+  if (!action) {
+    await tg("answerCallbackQuery", { callback_query_id: cq.id, text: "?" });
+    return new Response("ok");
+  }
 
   // ── الكتابة ──
   // upsert على job_id: الضغط مرتين بيحدّث القرار مش بيضيف صف.
+  const now = new Date().toISOString();
   const row = decide
-    ? { job_id: jobId, status: decide.status, decided_at: new Date().toISOString() }
-    : { job_id: jobId, status: "applied", confirmed: confirm!.value };
+    ? { job_id: jobId, status: decide.status, decided_at: now }
+    : confirm
+    ? { job_id: jobId, status: "applied", confirmed: confirm.value }
+    : { job_id: jobId, status: "applied", confirmed: true,
+        outcome: outcome!.value, outcome_at: now };
 
   const { error } = await db
     .from("applications")
