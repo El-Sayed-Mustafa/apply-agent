@@ -1,0 +1,122 @@
+# ═══════════════════════════════════════════════════════════════════════
+# سيرتك الذاتية كبيانات منظّمة — مش كنص.
+#
+# ⚠️  راجع الملف ده كويس. كل تقييم في المنظومة كلها مبني عليه.
+#     أي حاجة غلط هنا = كل الأرقام غلط.
+#
+# ليه منظّم ومش نص؟ عشان لما نوصل لتظبيط الـ CV لكل وظيفة، التظبيط
+# هيبقى **اختيار وترتيب** من النقط اللي تحت — مش كتابة جديدة. وبكده
+# اختلاق خبرة مش موجودة يبقى مستحيل هندسيًا، مش مجرد ممنوع في الـ prompt.
+#
+# كل نقطة ليها معرّف (b1, b2, ...). التظبيط بيرجّع معرّفات بس.
+# ═══════════════════════════════════════════════════════════════════════
+
+profile:
+  title: "AI & Automation Engineer"
+  years_experience: 3
+  location: "Egypt"
+  languages: ["Arabic (native)", "English (professional)"]
+  open_to: ["remote", "relocation", "visa sponsorship"]
+
+# ── المهارات ───────────────────────────────────────────────────────────
+# اكتب اللي بتعرفه فعلاً بس. المقيّم بياخد الكلام ده كحقيقة.
+
+skills:
+  languages:   [Python, SQL, JavaScript, "Google Apps Script"]
+  ai:
+    - "LLM APIs (OpenAI, Gemini)"
+    - "Ollama / local models"
+    - "RAG"
+    - "hybrid retrieval"
+    - "Whisper (speech-to-text)"
+    - "prompt engineering"
+    - "structured output"
+  automation:  [n8n, "REST APIs", Webhooks, "Zapier"]
+  data:        [Supabase, PostgreSQL, "ETL pipelines", "data modeling", "Power BI", Excel]
+  tools:       [Git, Docker, "CRM systems", "Linux basics"]
+
+not_experienced_with:
+  - "Swift / iOS / mobile development"
+  - "Spark / Hadoop / distributed big data"
+  - "Kubernetes in production"
+  - "PyTorch / TensorFlow model training from scratch"
+
+# ── الخبرة ─────────────────────────────────────────────────────────────
+# كل نقطة معرّف ثابت. متغيّرش المعرّفات بعد ما نبدأ نستخدمها.
+
+experience:
+  - id: exp1
+    role: "AI & Automation Engineer"
+    company: "—"
+    period: "2024 — الآن"
+    bullets:
+      - id: b1
+        text: "بناء أنظمة أتمتة داخلية بتربط CRMs وقواعد بيانات وAPIs خارجية"
+        tags: [automation, apis, integration]
+      - id: b2
+        text: "تصميم ونشر تكاملات LLM في سير عمل تشغيلي حقيقي"
+        tags: [llm, integration, production]
+      - id: b3
+        text: "بناء وصيانة خطوط ETL على Supabase و PostgreSQL"
+        tags: [data, etl, sql]
+      - id: b4
+        text: "أتمتة عمليات متكررة بـ n8n و Google Apps Script"
+        tags: [automation, n8n]
+
+  - id: exp2
+    role: "Data Analyst"
+    company: "—"
+    period: "2023 — 2024"
+    bullets:
+      - id: b5
+        text: "بناء لوحات تحليلية وتقارير لأصحاب القرار"
+        tags: [data, bi, reporting]
+      - id: b6
+        text: "تنظيف ونمذجة بيانات من مصادر متعددة"
+        tags: [data, modeling, sql]
+
+# ── المشاريع ───────────────────────────────────────────────────────────
+
+projects:
+  - id: proj1
+    name: "Freelancer Meeting Copilot"
+    bullets:
+      - id: b7
+        text: "مساعد اجتماعات محلي بالكامل: Whisper للتفريغ + Ollama للتلخيص"
+        tags: [llm, whisper, local-models, privacy]
+      - id: b8
+        text: "استرجاع هجين (كلمات مفتاحية + دلالي) فوق تخزين RAG"
+        tags: [rag, retrieval, vector-search]
+
+  - id: proj2
+    name: "Apply Agent"
+    bullets:
+      - id: b9
+        text: "منظومة بتسحب الوظايف من بوردات التوظيف العامة، بتقيّمها بـ LLM، وبتجهّز التقديم"
+        tags: [llm, automation, python, evaluation]
+      - id: b10
+        text: "تقييم منهجي: golden set، قياس AUC، ومقارنة الموديل بـ baseline بسيط"
+        tags: [evaluation, measurement, llm]
+
+# ── التعليم ────────────────────────────────────────────────────────────
+
+education:
+  - degree: "بكالوريوس هندسة"
+    note: "مشروع تخرج — راجع التفاصيل وضيفها هنا"
+
+# ── اللي بتدوّر عليه ────────────────────────────────────────────────────
+# المقيّم بيستخدمها كسياق: وظيفة بتطابق مهاراتك بس مالهاش علاقة
+# باللي عايزه = مش تطابق كويس.
+
+seeking:
+  roles:
+    - "AI Engineer"
+    - "AI / Automation Engineer"
+    - "LLM Engineer"
+    - "Backend Engineer (AI-focused)"
+    - "Data Engineer"
+    - "Forward Deployed Engineer"
+  avoid:
+    - "أدوار موبايل أو frontend خالصة"
+    - "أدوار بحث بتتطلب دكتوراه"
+    - "أدوار إدارية من غير شغل تقني"
