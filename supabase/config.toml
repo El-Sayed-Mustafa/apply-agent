@@ -1,0 +1,6 @@
+project_id = "wpyberjqlizxinxknglj"
+
+[functions.telegram-webhook]
+# تليجرام مش بيبعت JWT بتاع Supabase — التحقق بيتم بالتوكن السري
+# اللي إحنا حاطينه في هيدر كل نداء. verify_jwt = true هيرفض كل حاجة.
+verify_jwt = false

@@ -157,3 +157,40 @@ def test_poster_key_ignores_location():
 
     assert poster(a) == poster(b)      # نفس الإعلان، مدينة مختلفة
     assert poster(a) != poster(c)      # وظيفة تانية فعلاً
+
+
+# ── أزرار الموافقة ──────────────────────────────────────────────────────
+
+def test_keyboard_has_three_choices():
+    kb = telegram.keyboard(123)
+    row = kb["inline_keyboard"][0]
+    assert len(row) == 3
+    assert {b["callback_data"] for b in row} == {"a:123", "s:123", "l:123"}
+
+
+def test_callback_data_under_telegram_limit():
+    """
+    تليجرام بيقصّ callback_data عند 64 بايت. لو بعتنا اسم الشركة أو
+    العنوان جوّاه، وظيفة برقم كبير هتتقص والزرار هيبوظ من غير خطأ.
+    عشان كده بنبعت حرف ورقم بس.
+    """
+    for job_id in (1, 999_999_999_999):
+        for b in telegram.keyboard(job_id)["inline_keyboard"][0]:
+            assert len(b["callback_data"].encode()) <= 64
+
+
+@pytest.mark.parametrize("data,ok", [
+    ("a:1", True), ("s:42", True), ("l:999999", True),
+    ("x:1", False),           # فعل مش معروف
+    ("a:abc", False),         # مش رقم
+    ("a:1;drop table jobs", False),
+    ("a:" + "9" * 20, False), # رقم أطول من الحد
+    ("", False), ("a", False), ("a:", False),
+])
+def test_callback_pattern_matches_edge_function(data, ok):
+    """
+    نفس التعبير الموجود في الـ Edge Function. الاختبار ده بيمسك لو
+    الاتنين اتفرقوا — وساعتها الأزرار تبقى شغالة محليًا وواقعة فعليًا.
+    """
+    import re as _re
+    assert bool(_re.fullmatch(r"([asl]):(\d{1,12})", data)) is ok

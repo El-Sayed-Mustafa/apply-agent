@@ -103,7 +103,8 @@ def deliver(db, items: list[dict], token: str, chat_id: str) -> dict:
         row = {"job_id": job["id"], "channel": "telegram",
                "score_at_send": score.get("score_final")}
         try:
-            row["message_id"] = telegram.send_with_retry(text, token, chat_id)
+            row["message_id"] = telegram.send_with_retry(
+                text, token, chat_id, markup=telegram.keyboard(job["id"]))
             sent += 1
             print(f"   ✅ {score['score_final']:>3} {job['company_name'][:16]:<18}"
                   f"{job['title'][:44]}")

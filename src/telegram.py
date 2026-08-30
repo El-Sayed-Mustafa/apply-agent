@@ -95,25 +95,44 @@ def format_job(job: dict, score: dict) -> str:
     return "\n".join(lines)
 
 
-def send(text: str, token: str | None = None, chat_id: str | None = None) -> int:
+def keyboard(job_id: int) -> dict:
+    """
+    الأزرار تحت الرسالة.
+
+    callback_data محدود بـ 64 بايت عند تليجرام، فبنبعت حرف ورقم بس:
+    "a:123". الـ Edge Function بيتحقق من الشكل ده بتعبير صارم قبل
+    ما يلمس الداتابيز.
+    """
+    return {"inline_keyboard": [[
+        {"text": "✅ قدّمت",     "callback_data": f"a:{job_id}"},
+        {"text": "❌ مش مناسبة", "callback_data": f"s:{job_id}"},
+        {"text": "🕐 بعدين",     "callback_data": f"l:{job_id}"},
+    ]]}
+
+
+def send(text: str, token: str | None = None, chat_id: str | None = None,
+         markup: dict | None = None) -> int:
     """ابعت رسالة. رجّع message_id."""
     if token is None or chat_id is None:
         token, chat_id = _config()
-    result = call("sendMessage", {
+    payload = {
         "chat_id": chat_id,
         "text": text[:4096],                 # حد تليجرام الصلب
         "parse_mode": "HTML",
         "disable_web_page_preview": True,
-    }, token)
-    return result["message_id"]
+    }
+    if markup:
+        payload["reply_markup"] = markup
+    return call("sendMessage", payload, token)["message_id"]
 
 
-def send_with_retry(text: str, token: str, chat_id: str, tries: int = 3) -> int:
+def send_with_retry(text: str, token: str, chat_id: str, tries: int = 3,
+                    markup: dict | None = None) -> int:
     """تليجرام بيرجّع 429 مع retry_after لما تستعجل."""
     last = ""
     for attempt in range(tries):
         try:
-            return send(text, token, chat_id)
+            return send(text, token, chat_id, markup)
         except Exception as exc:
             last = str(exc)
             m = re.search(r"retry after (\d+)", last, re.I)
@@ -162,3 +181,22 @@ def whoami(token: str) -> dict:
     if not data.get("ok"):
         raise RuntimeError(f"التوكن مرفوض: {data.get('description', '')[:150]}")
     return data["result"]
+
+
+def set_webhook(url: str, secret: str, token: str | None = None) -> dict:
+    """
+    اربط الـ Edge Function بتليجرام.
+
+    الـ secret_token بيرجع في هيدر كل نداء، والدالة بتتحقق منه قبل أي
+    كتابة. من غيره، أي حد يعرف الرابط يقدر يزوّر ضغطات أزرار.
+    """
+    return call("setWebhook", {
+        "url": url,
+        "secret_token": secret,
+        "allowed_updates": ["callback_query"],   # أقل صلاحية تكفي الشغل
+        "drop_pending_updates": True,
+    }, token or _config()[0])
+
+
+def webhook_info(token: str | None = None) -> dict:
+    return call("getWebhookInfo", {}, token or _config()[0])
