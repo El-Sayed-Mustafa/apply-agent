@@ -141,3 +141,21 @@ seniority:
   # اتقفل بعد قياس: الشرط كان بيكلّف 139 وظيفة مؤهلة (188 → 327).
   # و"Senior" في العنوان كلمة تسويقية — المتطلب الحقيقي مكتوب في
   # نص الإعلان، وقاعدة max_years_required بتمسكه بدقة.
+
+# ── منشورات التوظيف على لينكدإن ─────────────────────────────────────────
+# مصدر وظايف مستقل عن الـATS APIs. كتير من وظايف الخليج بتتنشر
+# كمنشور بس — مابتوصلش Greenhouse ولا المجمّعات أبدًا.
+#
+# بندوّر بدل ما نستنى الـfeed: الـfeed بيعكس شبكتك القديمة، فبيوريك
+# وظايف Data Analyst لإن دي الشبكة اللي اتبنت وانت محلل بيانات.
+post_search:
+  queries:
+    - "AI engineer hiring"
+    - "machine learning engineer hiring"
+    - "automation engineer hiring"
+    - "LLM engineer hiring"
+    - "AI engineer Saudi Arabia hiring"
+    - "AI engineer UAE hiring"
+    - "remote AI engineer hiring"
+    - "فرصة وظيفية مهندس ذكاء اصطناعي"
+    - "وظيفة مهندس أتمتة"
