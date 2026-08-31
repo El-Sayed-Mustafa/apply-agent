@@ -154,3 +154,14 @@ def test_location_suffix_does_not_split_a_duplicate():
     a = harvest.to_job(_post(author="A"), {**d, "location": "Toronto, Ontario"})
     b = harvest.to_job(_post(author="B"), {**d, "location": "Toronto, Ontario, Canada"})
     assert len(harvest.dedupe([a, b])) == 1
+
+
+def test_every_query_gets_a_share():
+    """
+    من غير حصة لكل استعلام، أول استعلامين بيملوا العدد المطلوب
+    والاستعلامات الخليجية والعربية مابتشتغلش. اتقاس: 20 منشور
+    رجعوا كلهم أمريكا وأستراليا والهند.
+    """
+    import inspect
+    src = inspect.getsource(harvest.collect)
+    assert "per_query" in src

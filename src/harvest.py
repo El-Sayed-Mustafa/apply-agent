@@ -143,9 +143,15 @@ def collect(page, queries: list[str], want: int = MAX_POSTS) -> list[dict]:
     """دوّر في منشورات لينكدإن وارجع اللي شكله إعلان وظيفة."""
     found: dict[str, dict] = {}
 
+    # حصة لكل استعلام بدل ما الأول ياخد كله. من غير ده، أول
+    # استعلامين بيملوا العدد المطلوب والاستعلامات الخليجية
+    # والعربية — اللي هي أهم حاجة — مابتشتغلش أصلاً.
+    per_query = max(2, want // max(len(queries), 1))
+
     for q in queries:
         if len(found) >= want:
             break
+        got = 0
         url = ("https://www.linkedin.com/search/results/content/?keywords="
                + urllib.parse.quote(q)
                + "&datePosted=%22past-week%22&sortBy=%22date_posted%22")
@@ -167,12 +173,15 @@ def collect(page, queries: list[str], want: int = MAX_POSTS) -> list[dict]:
                 raw = []
 
             for p in raw:
+                if got >= per_query:
+                    break
                 author, body = clean(p["text"])
                 if len(body) < MIN_CHARS:
                     continue
                 key = body[:160].lower()
                 if key in found:
                     continue
+                got += 1
                 found[key] = {
                     "author": author,
                     "author_url": p["who_url"],
@@ -181,7 +190,7 @@ def collect(page, queries: list[str], want: int = MAX_POSTS) -> list[dict]:
                     "query": q,
                 }
 
-            if len(found) >= want:
+            if got >= per_query or len(found) >= want:
                 break
             page.mouse.wheel(0, 1600)
             session.human_pause(3, 6)
