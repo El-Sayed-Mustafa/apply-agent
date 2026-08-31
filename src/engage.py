@@ -122,6 +122,72 @@ JS_COMPANY = r"""() => {
 }"""
 
 
+JS_SEARCH_CO = r"""() => {
+  const out = [], seen = new Set();
+  document.querySelectorAll('a[href*="/company/"]').forEach(a => {
+    const m = ((a.getAttribute('href')||'').split('?')[0])
+                .match(/\/company\/([^\/]+)/);
+    if (!m) return;
+    const slug = m[1];
+    if (seen.has(slug)) return;
+    const txt = (a.innerText||'').trim().split('\n')[0];
+    if (!txt) return;
+    seen.add(slug);
+    out.push({slug: slug, name: txt.slice(0,60)});
+  });
+  return out.slice(0, 8);
+}"""
+
+
+def norm(name: str) -> str:
+    return re.sub(r"[^a-z0-9؀-ۿ]", "", (name or "").lower())
+
+
+def find_company(page, name: str) -> tuple[str, str]:
+    """
+    دوّر على الشركة بالاسم. رجّع (المعرّف، ملاحظة).
+
+    المطابقة على الاسم المطبَّع بالظبط، مش على أول نتيجة. البحث
+    عن "Mozn" بيرجّع كمان `mozn-lab` و`Mozn Real Estate` — شركات
+    تانية خالص. ونفس الدرس بتاع التحقق من اسم المدعوّ: الترتيب
+    مش دليل هوية.
+    """
+    import urllib.parse
+    try:
+        page.goto(f"{BASE}/search/results/companies/?keywords="
+                  + urllib.parse.quote(name),
+                  wait_until="domcontentloaded", timeout=45_000)
+    except Exception as exc:
+        return "", str(exc)[:50]
+
+    session.human_pause(5, 9)
+    session.guard(page)
+    try:
+        hits = page.evaluate(JS_SEARCH_CO)
+    except Exception as exc:
+        return "", f"قراءة: {exc}"[:50]
+
+    want = norm(name)
+    exact = [h for h in hits if norm(h["name"]) == want]
+    if not exact:
+        return "", "مفيش مطابقة بالاسم"
+
+    # الاسم المعروض مش كفاية. البحث عن "moss" رجّع 5 شركات كلها
+    # اسمها المطبَّع "moss"، وأولاهم `mossconstruct` — شركة
+    # إنشاءات. المعرّف نفسه دليل أقوى: الشركة الأصلية بياخد
+    # الاسم نضيف، والباقي بيضيفوا لاحقة.
+    want_slug = [h for h in exact if norm(h["slug"]) == want]
+    if want_slug:
+        return want_slug[0]["slug"], ""
+
+    if len(exact) > 1:
+        # مفيش معرّف نضيف ومطابقات كتير — التخمين هنا بيتابع
+        # شركة تانية باسمه. أرخص إننا نسيبها.
+        return "", f"⚠ {len(exact)} شركة بنفس الاسم، مفيش وحدة واضحة"
+
+    return exact[0]["slug"], ""
+
+
 def company_slug(page, job_url: str) -> str:
     """افتح الإعلان وهات معرّف الشركة."""
     try:
@@ -266,9 +332,17 @@ def run(send: bool = False) -> dict:
             return {"error": "مفيش جلسة LinkedIn"}
         try:
             for j in plan:
-                slug = company_slug(page, j["url"]) if j.get("url") else ""
+                # الوظايف من ATS رابطها على Greenhouse مش لينكدإن،
+                # فمافيش لينك شركة نقراه — بندوّر بالاسم.
+                url = j.get("url") or ""
+                note = ""
+                slug = (company_slug(page, url)
+                        if "linkedin.com" in url else "")
                 if not slug:
-                    print(f"   ✗ {j['company_name'][:24]:<26}مالقيتش صفحة الشركة")
+                    slug, note = find_company(page, j["company_name"] or "")
+                if not slug:
+                    print(f"   ✗ {(j['company_name'] or '—')[:24]:<26}"
+                          f"{note or 'مالقيتش صفحة الشركة'}")
                     continue
                 ok, why = follow_company(page, slug)
                 key = (j["company_name"] or "").strip().lower()
@@ -276,7 +350,7 @@ def run(send: bool = False) -> dict:
                 store(state)
                 done += 1 if ok else 0
                 print(f"   {'✅' if ok else '•'} {j['company_name'][:24]:<26}"
-                      f"{slug[:24]:<26}{why}")
+                      f"{slug[:24]:<26}{why} {note}".rstrip())
                 session.human_pause(6, 12)
         except Blocked as b:
             store(state)

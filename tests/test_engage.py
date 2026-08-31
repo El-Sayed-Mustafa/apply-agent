@@ -93,3 +93,49 @@ def test_one_company_once_per_run():
     import inspect
     src = inspect.getsource(engage.run)
     assert "picked" in src and "picked.add" in src
+
+
+# ── تحديد الشركة ────────────────────────────────────────────────────────
+
+def _hit(slug, name):
+    return {"slug": slug, "name": name}
+
+
+def pick(hits, want):
+    """نفس منطق find_company بعد جلب النتايج."""
+    w = engage.norm(want)
+    exact = [h for h in hits if engage.norm(h["name"]) == w]
+    if not exact:
+        return ""
+    clean = [h for h in exact if engage.norm(h["slug"]) == w]
+    if clean:
+        return clean[0]["slug"]
+    return "" if len(exact) > 1 else exact[0]["slug"]
+
+
+def test_clean_slug_wins_over_search_rank():
+    """
+    البحث عن "moss" رجّع `mossconstruct` أول نتيجة — شركة
+    إنشاءات. الترتيب مش دليل هوية؛ المعرّف النضيف دليل أقوى.
+    """
+    hits = [_hit("mossconstruct", "Moss"), _hit("moss", "MOSS")]
+    assert pick(hits, "moss") == "moss"
+
+
+def test_ambiguous_is_skipped_not_guessed():
+    """
+    خمس شركات بنفس الاسم ومفيش معرّف نضيف: التخمين بيتابع شركة
+    تانية باسمه. أرخص إننا نسيبها.
+    """
+    hits = [_hit("lean-tech-sp", "Lean-Tech"), _hit("lean-tech-sg", "Lean Tech"),
+            _hit("leantechpro", "Leantech")]
+    assert pick(hits, "Lean Tech") == ""
+
+
+def test_single_match_passes():
+    assert pick([_hit("happyrobot", "HappyRobot")], "HappyRobot") == "happyrobot"
+
+
+def test_different_company_never_matches():
+    """"Mozn Real Estate" شركة تانية خالص."""
+    assert pick([_hit("moznrealestate", "Mozn Real Estate")], "Mozn") == ""
