@@ -67,3 +67,28 @@ def test_newline_escape_survived(mod, name, src_):
         return
     assert "split('\n')" not in src_.replace("\n", "«»"), \
         f"{mod}.{name}: فيه سطر حقيقي جوّه ليترال"
+
+
+# ── نفس الفخ في بايثون ──────────────────────────────────────────────────
+
+def test_no_python_string_broken_across_lines():
+    """
+    نفس السبب، مكان تاني: `\n` جوّه نص بايثون بيتحول لسطر حقيقي
+    ويكسر الـf-string. ضربنا في `engage.show_stats` وخلّى الملف
+    كله ماينقراش.
+
+    الفحص بسيط: أي ملف مصدر لازم يستورد. الاستيراد بيفشل على
+    الليترال المكسور قبل أي حاجة تانية.
+    """
+    import importlib
+    import pkgutil
+
+    failed = []
+    for mod in pkgutil.walk_packages(src.__path__, prefix="src."):
+        try:
+            importlib.import_module(mod.name)
+        except SyntaxError as exc:
+            failed.append(f"{mod.name}: {exc}")
+        except Exception:
+            pass          # الاستيراد ممكن يفشل لأسباب تانية (مفاتيح، شبكة)
+    assert not failed, "ليترال مكسور: " + " · ".join(failed)

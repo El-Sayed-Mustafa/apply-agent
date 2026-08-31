@@ -139,3 +139,25 @@ def test_single_match_passes():
 def test_different_company_never_matches():
     """"Mozn Real Estate" شركة تانية خالص."""
     assert pick([_hit("moznrealestate", "Mozn Real Estate")], "Mozn") == ""
+
+
+def test_state_records_the_slug_not_just_the_name():
+    """
+    بعد حادثة `mossconstruct` مكانش في طريقة نعرف بيها الصفحة
+    اللي اتفتحت فعلاً — السجل كان بيحفظ اسم الشركة بس. سجل من
+    غير المعرّف مابيسمحش بمراجعة.
+    """
+    import inspect
+    src = inspect.getsource(engage.run)
+    assert '"slug": slug' in src
+
+
+def test_old_state_format_still_counts():
+    """الملف القديم كان نص تاريخ، الجديد قاموس — الاتنين لازم يتقروا."""
+    today = engage._today()
+    state = {"companies": {
+        "a": today + "T10:00:00+00:00",
+        "b": {"at": today + "T11:00:00+00:00", "slug": "b-co"},
+        "c": "2020-01-01T00:00:00+00:00",
+    }}
+    assert engage.done_today(state, "companies") == 2

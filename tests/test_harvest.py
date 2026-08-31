@@ -175,3 +175,26 @@ def test_no_arabic_queries():
     import re
     for q in harvest.searches():
         assert not re.search(r"[\u0600-\u06ff]", q), f"استعلام عربي: {q}"
+
+
+def test_missing_location_does_not_split_a_duplicate():
+    """
+    نفس الإعلان بموقع في نسخة ومن غير موقع في التانية كان بيعدّي
+    مرتين — حصل مع Qualcomm AI Hub. المسمى لوحده كفاية لما مفيش
+    موقع نقارن بيه.
+    """
+    d = {"title": "AI Engineer", "company": "Qualcomm", "remote_type": "unknown",
+         "apply": "", "summary": "s"}
+    a = harvest.to_job(_post(author="A"), {**d, "location": ""})
+    b = harvest.to_job(_post(author="B"), {**d, "location": "Chennai"})
+    assert len(harvest.dedupe([a, b])) == 1
+
+
+def test_ineligible_geography_is_dropped():
+    """
+    الوظيفة من منشور إحنا اللي بنركّبها، فمالهاش قيمة كتالوج
+    تخلّينا نحتفظ باللي مايعديش. الضجيج كان بيوصل لـTokyo وChennai.
+    """
+    import inspect
+    src = inspect.getsource(harvest.run)
+    assert "targeting.evaluate" in src

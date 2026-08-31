@@ -290,6 +290,16 @@ def extract(client, post: dict, models: list[str] | None = None) -> tuple[dict |
     return None, last or "كل الموديلات فشلت"
 
 
+class _Row:
+    """أقل شكل تحتاجه targeting.evaluate."""
+
+    def __init__(self, j):
+        self.title = j.title
+        self.location = j.location
+        self.remote_type = j.remote_type
+        self.description = j.description
+
+
 def to_job(post: dict, data: dict) -> Job:
     """
     حوّل الاستخراج لوظيفة.
@@ -334,12 +344,18 @@ def dedupe(jobs: list[Job]) -> list[Job]:
         # أول جزء من الموقع بس: "Toronto, Ontario" و"Toronto,
         # Ontario, Canada" نفس المكان — والفرق ده لوحده كان بيمرّر
         # الإعلان مرتين.
+        # الموقع لما يكون ناقص في نسخة وموجود في التانية، المفتاح
+        # بيختلف والإعلان بيعدّي مرتين — حصل مع Qualcomm AI Hub.
+        # المسمى لوحده كفاية لما مفيش موقع نقارن بيه.
         city = (j.location or "").split(",")[0]
         k = (re.sub(r"\W+", "", (j.title or "").lower()),
-             re.sub(r"\W+", "", city.lower()))
-        if k in seen:
+             re.sub(r"\W+", "", city.lower()) or None)
+        title_only = (k[0], None)
+        if k in seen or title_only in seen or (k[1] and (k[0], None) in seen):
             continue
         seen.add(k)
+        if k[1] is None:
+            seen.add(title_only)
         out.append(j)
     return out
 
@@ -385,9 +401,13 @@ def run(dry: bool = False, limit: int = MAX_POSTS) -> dict:
                 print(f"   ⚠ {p['author'][:18]:<20}{err[:60]}")
             continue
         j = to_job(p, data)
-        if not targeting.matches_role(j.title):
+        # الدور والأهلية الاتنين. الوظيفة من منشور إحنا اللي
+        # بنركّبها، فمالهاش قيمة كتالوج تخلّينا نحتفظ باللي
+        # مايعديش — والضجيج بيوصل لجغرافيا زي Chennai و Tokyo.
+        verdict = targeting.evaluate(_Row(j))
+        if not verdict.eligible:
             skipped += 1
-            print(f"   ↷ {j.title[:44]:<46}برّه تخصصك")
+            print(f"   ↷ {j.title[:42]:<44}{verdict.reason[:28]}")
             continue
         jobs.append(j)
         print(f"   ✅ {j.title[:42]:<44}{(j.company_name or '')[:22]:<24}"

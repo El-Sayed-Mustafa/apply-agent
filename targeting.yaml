@@ -185,12 +185,15 @@ post_search:
 # كل (كلمة × مكان) بحث لوحده، فالعدد بيتضاعف بسرعة — خلي
 # الكلمات قليلة ومركّزة.
 job_board:
+  # "Automation Engineer" لوحدها اتشالت: جابت Baja و Eaton و Tibah
+  # Airports و Wipro L4 — أتمتة صناعية و PLC، مهنة تانية خالص.
+  # "AI Automation" بتشتغل صح لإن "AI" بتقيّد المعنى.
   keywords:
     - "AI Engineer"
     - "Machine Learning Engineer"
     - "AI Automation Engineer"
     - "LLM Engineer"
-    - "Data Engineer"
+    - "Generative AI Engineer"
   locations:
     - "Saudi Arabia"
     - "United Arab Emirates"

@@ -79,9 +79,16 @@ def _today() -> str:
     return datetime.now(timezone.utc).date().isoformat()
 
 
+def _at(v) -> str:
+    """الشكل القديم كان نص تاريخ؛ الجديد قاموس."""
+    if isinstance(v, dict):
+        return v.get("at") or ""
+    return v or ""
+
+
 def done_today(state: dict, kind: str) -> int:
     return sum(1 for v in state.get(kind, {}).values()
-               if (v or "").startswith(_today()))
+               if _at(v).startswith(_today()))
 
 
 # ── اللي يستاهل ─────────────────────────────────────────────────────────
@@ -345,8 +352,18 @@ def run(send: bool = False) -> dict:
                           f"{note or 'مالقيتش صفحة الشركة'}")
                     continue
                 ok, why = follow_company(page, slug)
+                # المعرّف بيتسجّل مش الاسم بس. بعد حادثة
+                # `mossconstruct` مكانش في طريقة نعرف بيها الصفحة
+                # اللي اتفتحت فعلاً — سجل من غير المعرّف مابيسمحش
+                # بمراجعة.
                 key = (j["company_name"] or "").strip().lower()
-                state["companies"][key] = datetime.now(timezone.utc).isoformat()
+                state["companies"][key] = {
+                    "at": datetime.now(timezone.utc).isoformat(),
+                    "slug": slug,
+                    "url": f"{BASE}/company/{slug}/",
+                    "followed": ok,
+                    "job": j["title"][:80],
+                }
                 store(state)
                 done += 1 if ok else 0
                 print(f"   {'✅' if ok else '•'} {j['company_name'][:24]:<26}"
@@ -363,7 +380,14 @@ def run(send: bool = False) -> dict:
 
 def show_stats() -> None:
     state = load()
-    print(f"شركات متابَعة: {len(state.get('companies', {}))}")
+    print(f"شركات متابَعة: {len(state.get('companies', {}))}\n")
+    for name, v in sorted(state.get("companies", {}).items()):
+        if isinstance(v, dict):
+            print(f"   {name[:22]:<24}{v.get('slug', '—')[:26]:<28}"
+                  f"{_at(v)[:10]}")
+        else:
+            print(f"   {name[:22]:<24}{'(قديم — مفيش معرّف)':<28}{_at(v)[:10]}")
+    print()
     print(f"أشخاص متابَعين: {len(state.get('people', {}))}")
     print(f"تنبيهات: {len(state.get('alerts', {}))}")
     print(f"النهاردة: {done_today(state, 'companies')} شركة، "

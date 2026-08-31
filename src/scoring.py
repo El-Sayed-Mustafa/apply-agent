@@ -59,6 +59,15 @@ TIME_BUDGET = int(os.getenv("SCORE_SECONDS", "420"))   # مهلة الـ workflo
 # وقارن. لو مفيش فرق في دقة التوقع — اقفله وخلاص، بيوفّر نص التكلفة.
 REFUTE = os.getenv("SCORER_REFUTE", "1") not in ("0", "false", "no")
 
+# المخاصمة بتنزّل الدرجة بس — مابترفعهاش أبدًا. يعني وظيفة جابت 30
+# مش هتوصل 70 مهما حصل، والنداء المخاصم عليها بيتحرق على قرار
+# محسوم سلفًا.
+#
+# القياس: من 35 تقييم، 4 بس عدّوا 70. يعني 88% من النداءات
+# المخاصمة كانت بتتصرف على وظايف مرفوضة أصلاً — والحصة اليومية
+# هي القيد الحقيقي في المنظومة.
+REFUTE_FLOOR = int(os.getenv("SCORER_REFUTE_FLOOR", "70"))
+
 REFUTER_SCHEMA = {
     "type": "object",
     "properties": {
@@ -363,7 +372,8 @@ def pending(db, limit: int) -> list[dict]:
     # لما موديل كويس يبقى متاح.
     rows = db.table("scores").select("job_id,model")         .eq("scorer_version", SCORER_VERSION).execute().data
     scored = {r["job_id"] for r in rows if r.get("model") not in WEAK_MODELS}
-    redo = sum(1 for r in rows if r.get("model") in WEAK_MODELS)
+    weak = {r["job_id"] for r in rows if r.get("model") in WEAK_MODELS} - scored
+    redo = len(weak)
     if redo:
         print(f"   ({redo} تقييم بموديل ضعيف — هيتعاد)")
 
@@ -478,7 +488,7 @@ def run(db, limit: int = BATCH) -> dict:
         # لو فشل، بنكمّل بالتقييم الأول. مخاصمة ناقصة أحسن من وظيفة
         # مش متقيّمة خالص.
         ref, rtk, rerr = (None, 0, "متخطّى")
-        if REFUTE and live:
+        if REFUTE and live and out["score"] >= REFUTE_FLOOR:
             ref, rtk, rerr = refute(client, cv_text, job, out, live)
             tokens += rtk
 
