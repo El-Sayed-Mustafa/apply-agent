@@ -226,11 +226,16 @@ def fetch_workable(name: str, token: str) -> list[Job]:
     return jobs
 
 
+# مصادر اتقفلت بعد قياس، مش بعد إحساس. سايبين الدوال شغالة —
+# التقاعد هنا قرار تشغيلي يترد فيه، مش حذف.
+#
+#   recruitee → 80 وظيفة، صفر مؤهلة
+RETIRED = {"recruitee"}
+
 ADAPTERS = {
     "greenhouse": fetch_greenhouse,
     "lever": fetch_lever,
     "ashby": fetch_ashby,
-    "recruitee": fetch_recruitee,
     "workable": fetch_workable,
 }
 

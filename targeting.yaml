@@ -149,13 +149,54 @@ seniority:
 # بندوّر بدل ما نستنى الـfeed: الـfeed بيعكس شبكتك القديمة، فبيوريك
 # وظايف Data Analyst لإن دي الشبكة اللي اتبنت وانت محلل بيانات.
 post_search:
+  # كل استعلام بياخد حصته من العدد المطلوب. من غير كده أول
+  # استعلامين بياخدوا الحصة كلها والباقي ما يجيش دوره —
+  # اتقاس: 20 منشور رجعوا كلهم أمريكا وأستراليا والهند.
   queries:
-    - "AI engineer hiring"
-    - "machine learning engineer hiring"
-    - "automation engineer hiring"
-    - "LLM engineer hiring"
-    - "AI engineer Saudi Arabia hiring"
-    - "AI engineer UAE hiring"
-    - "remote AI engineer hiring"
+    # ── الخليج: الأولوية، ودي اللي المصادر التانية مابتوصلهاش ──
+    - "AI engineer hiring Saudi Arabia"
+    - "AI engineer hiring UAE Dubai"
+    - "machine learning engineer hiring Riyadh"
+    - "automation engineer hiring Qatar Kuwait"
+    - "AI engineer hiring Egypt"
     - "فرصة وظيفية مهندس ذكاء اصطناعي"
     - "وظيفة مهندس أتمتة"
+    - "مطلوب مهندس تعلم آلي"
+    - "وظائف الذكاء الاصطناعي السعودية"
+    - "مطلوب Data Engineer الإمارات"
+
+    # ── ريموت حول العالم ──
+    - "remote AI engineer hiring"
+    - "remote machine learning engineer hiring"
+    - "remote LLM engineer hiring"
+    - "remote automation engineer hiring"
+
+    # ── أوروبا بتأشيرة (الطبقة 2) ──
+    - "AI engineer hiring visa sponsorship"
+    - "machine learning engineer hiring relocation Germany"
+    - "AI engineer hiring Netherlands"
+
+    # ── عام ──
+    - "AI engineer hiring"
+    - "LLM engineer hiring"
+    - "AI automation engineer hiring"
+
+# ── لوحة وظايف لينكدإن ──────────────────────────────────────────────────
+# الخليج ومصر بس. دي المنطقة اللي الـATS الأمريكاني مابيوصلهاش،
+# وهي سبب إن لينكدإن أعلى مصدر عائدًا في القياس.
+#
+# كل (كلمة × مكان) بحث لوحده، فالعدد بيتضاعف بسرعة — خلي
+# الكلمات قليلة ومركّزة.
+job_board:
+  keywords:
+    - "AI Engineer"
+    - "Machine Learning Engineer"
+    - "AI Automation Engineer"
+    - "LLM Engineer"
+    - "Data Engineer"
+  locations:
+    - "Saudi Arabia"
+    - "United Arab Emirates"
+    - "Egypt"
+    - "Qatar"
+    - "Kuwait"

@@ -219,3 +219,38 @@ def test_cv_version_changes_with_the_file(tmp_path):
     b = tmp_path / "b.yaml"; b.write_text("profile:\n  title: Y\n", encoding="utf-8")
     assert scoring.cv_version(str(a)) != scoring.cv_version(str(b))
     assert scoring.cv_version(str(a)) == scoring.cv_version(str(a))
+
+
+# ── أولوية التقييم ──────────────────────────────────────────────────────
+
+def test_priority_favours_measured_producers():
+    """
+    537 ألف توكن اتحرقوا على مصادر ماطلّعتش ولا فرصة. المصادر
+    اللي أثبتت نفسها لازم تتقيّم الأول — لو الحصة خلصت، تخلص
+    على الأحسن مش على الأقدم في الطابور.
+    """
+    P = scoring.PRIORITY
+    assert P["linkedin_post"] < P["greenhouse"]
+    assert P["remoteok"] < P["greenhouse"]
+    assert P["ashby"] < P["himalayas"]
+
+
+def test_unknown_source_is_not_starved():
+    """
+    مصدر جديد لسه مالوش تاريخ لازم ياخد فرصة — مش يتحط في الآخر
+    وميتقيّمش أبدًا فيفضل من غير تاريخ للأبد.
+    """
+    assert scoring.DEFAULT_PRIORITY < max(scoring.PRIORITY.values())
+
+
+def test_queue_sorted_by_priority(monkeypatch):
+    """الطابور بيرتّب بالمصدر، وبعدين بالأحدث."""
+    rows = [
+        {"id": 9, "ats": "greenhouse", "title": "AI Engineer", "location": "Remote",
+         "remote_type": "remote", "description": "python", "company_name": "A"},
+        {"id": 3, "ats": "remoteok", "title": "AI Engineer", "location": "Remote",
+         "remote_type": "remote", "description": "python", "company_name": "B"},
+    ]
+    ordered = sorted(rows, key=lambda r: (
+        scoring.PRIORITY.get(r["ats"], scoring.DEFAULT_PRIORITY), -r["id"]))
+    assert [r["ats"] for r in ordered] == ["remoteok", "greenhouse"]

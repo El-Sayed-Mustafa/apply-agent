@@ -162,13 +162,18 @@ def fetch_themuse(*_) -> list[Job]:
     return out
 
 
+# مصادر اتقفلت بعد قياس. مش وظايف وحشة — وظايف مش ليك أصلاً.
+# الدوال سايبة شغالة؛ التقاعد قرار تشغيلي يترد فيه.
+#
+#   themuse  → 41 وظيفة، صفر مؤهلة
+#   remotive → 19 وظيفة، صفر مؤهلة
+RETIRED = {"remotive", "themuse"}
+
 AGGREGATORS = {
     "arbeitnow": fetch_arbeitnow,
-    "remotive": fetch_remotive,
     "remoteok": fetch_remoteok,
     "himalayas": fetch_himalayas,
     "jobicy": fetch_jobicy,
-    "themuse": fetch_themuse,
 }
 
 

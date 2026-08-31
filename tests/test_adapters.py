@@ -128,10 +128,22 @@ def test_unknown_ats_raises():
         adapters.fetch({"name": "X", "ats": "monster", "token": "t"})
 
 
-def test_every_adapter_is_registered():
-    """adapter اتكتب ومتسجّلش = شغل ضايع ومفيش حد هيلاحظ."""
+def test_every_adapter_is_registered_or_retired():
+    """
+    adapter اتكتب ومتسجّلش = شغل ضايع ومفيش حد هيلاحظ.
+
+    والتقاعد لازم يكون مكتوب: مصدر بيختفي من الدورة من غير سبب
+    مسجّل بيرجع تاني بعد شهور من غير ما حد يفتكر ليه اتشال.
+    """
     for ats, _ in CASES:
-        assert ats in adapters.ADAPTERS
+        assert ats in adapters.ADAPTERS or ats in adapters.RETIRED
+
+
+def test_retired_sources_are_not_polled():
+    """المتقاعد لازم يفضل بره الدورة، مش بره الكود."""
+    for ats in adapters.RETIRED:
+        assert ats not in adapters.ADAPTERS
+        assert hasattr(adapters, f"fetch_{ats}")
 
 
 # ── تصنيف الريموت ───────────────────────────────────────────────────────
