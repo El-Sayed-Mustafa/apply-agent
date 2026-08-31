@@ -154,16 +154,13 @@ post_search:
   # اتقاس: 20 منشور رجعوا كلهم أمريكا وأستراليا والهند.
   queries:
     # ── الخليج: الأولوية، ودي اللي المصادر التانية مابتوصلهاش ──
+    # إنجليزي بس. الإعلانات العربية على لينكدإن غالبًا لأدوار
+    # إدارية ومبيعات، والمطابقة بترجّع نتايج برّه التخصص.
     - "AI engineer hiring Saudi Arabia"
     - "AI engineer hiring UAE Dubai"
     - "machine learning engineer hiring Riyadh"
     - "automation engineer hiring Qatar Kuwait"
     - "AI engineer hiring Egypt"
-    - "فرصة وظيفية مهندس ذكاء اصطناعي"
-    - "وظيفة مهندس أتمتة"
-    - "مطلوب مهندس تعلم آلي"
-    - "وظائف الذكاء الاصطناعي السعودية"
-    - "مطلوب Data Engineer الإمارات"
 
     # ── ريموت حول العالم ──
     - "remote AI engineer hiring"

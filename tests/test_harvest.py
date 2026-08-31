@@ -165,3 +165,13 @@ def test_every_query_gets_a_share():
     import inspect
     src = inspect.getsource(harvest.collect)
     assert "per_query" in src
+
+
+def test_no_arabic_queries():
+    """
+    الإعلانات العربية على لينكدإن غالبًا لأدوار إدارية ومبيعات،
+    والمطابقة بترجّع نتايج برّه التخصص.
+    """
+    import re
+    for q in harvest.searches():
+        assert not re.search(r"[\u0600-\u06ff]", q), f"استعلام عربي: {q}"

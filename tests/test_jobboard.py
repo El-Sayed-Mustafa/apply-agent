@@ -142,3 +142,47 @@ def test_run_has_a_ceiling_on_page_opens():
     ممكن يبقى 150 صفحة — وده مش سلوك بني آدم.
     """
     assert 10 <= jobboard.MAX_DESCRIBE <= 40
+
+
+# ── حجم النشاط ──────────────────────────────────────────────────────────
+
+def test_run_is_a_slice_not_the_whole_grid():
+    """
+    5 كلمات × 5 أماكن = 25 بحث كل يوم، وده قبل الأوصاف. بنلف
+    على الشبكة: التغطية بتكتمل على مدار الأسبوع والتشغيلة تفضل
+    صغيرة.
+    """
+    assert jobboard.SEARCHES_PER_RUN <= 10
+    keywords, locations = jobboard.config()
+    assert jobboard.SEARCHES_PER_RUN < len(keywords) * len(locations)
+
+
+def test_same_day_gives_the_same_slice():
+    """
+    إعادة تشغيل في نفس اليوم مالزمهاش تزوّد النشاط — لازم تدوّر
+    على نفس الشريحة.
+    """
+    from datetime import datetime, timezone
+    day = datetime.now(timezone.utc).toordinal()
+    a = (day * jobboard.SEARCHES_PER_RUN) % 25
+    b = (day * jobboard.SEARCHES_PER_RUN) % 25
+    assert a == b
+
+
+def test_slice_moves_the_next_day():
+    day = 100
+    a = (day * jobboard.SEARCHES_PER_RUN) % 25
+    b = ((day + 1) * jobboard.SEARCHES_PER_RUN) % 25
+    assert a != b
+
+
+def test_off_target_titles_never_open_a_page():
+    """
+    73% من اللي دخل مكنش مطابق للدور، وكل واحدة فتحت صفحة على
+    الحساب من غير فايدة. ده مش تنضيف بيانات — ده تقليل نشاط.
+    """
+    import inspect
+    src = inspect.getsource(jobboard.run)
+    i_filter = src.index("matches_role")
+    i_open = src.index("describe(page")
+    assert i_filter < i_open, "الفلترة لازم تسبق فتح الصفحات"

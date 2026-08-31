@@ -39,7 +39,7 @@ import yaml
 from dotenv import load_dotenv
 from google.genai import types
 
-from . import genai_pool
+from . import genai_pool, targeting
 from .adapters import Job
 from .linkedin import session
 from .linkedin.session import Blocked
@@ -385,6 +385,10 @@ def run(dry: bool = False, limit: int = MAX_POSTS) -> dict:
                 print(f"   ⚠ {p['author'][:18]:<20}{err[:60]}")
             continue
         j = to_job(p, data)
+        if not targeting.matches_role(j.title):
+            skipped += 1
+            print(f"   ↷ {j.title[:44]:<46}برّه تخصصك")
+            continue
         jobs.append(j)
         print(f"   ✅ {j.title[:42]:<44}{(j.company_name or '')[:22]:<24}"
               f"{j.location or '—'}")

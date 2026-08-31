@@ -29,10 +29,12 @@ from __future__ import annotations
 
 import argparse
 import re
+from datetime import datetime, timezone
 
 import yaml
 from dotenv import load_dotenv
 
+from . import targeting
 from .adapters import Job
 from .linkedin import session
 from .linkedin.session import Blocked
@@ -51,7 +53,15 @@ PER_SEARCH = 6
 # وأكتره لفتًا للنظر — 25 بحث × 6 كارت ممكن يبقى 150 صفحة، وده
 # مش سلوك بني آدم. الباقي بيستنى التشغيلة الجاية؛ الكروت
 # المتسجّلة بتتعدّى فالتقدّم بيتراكم.
-MAX_DESCRIBE = 25
+MAX_DESCRIBE = 12
+
+# كام بحث في التشغيلة الواحدة. 5 كلمات × 5 أماكن = 25 بحث كل
+# يوم، وده لوحده — قبل الأوصاف — نشاط أكبر من أي بني آدم.
+#
+# بنلف على الشبكة بدل ما نمشيها كلها: كل يوم بياخد شريحة
+# مختلفة، فالتغطية بتكتمل على مدار الأسبوع والتشغيلة الواحدة
+# تفضل صغيرة.
+SEARCHES_PER_RUN = 8
 
 # الأسبوع الأخير بس — إعلان عمره شهر الأغلب اتقفل
 RECENT = "r604800"
@@ -243,7 +253,16 @@ def run(dry: bool = False, per_search: int = PER_SEARCH) -> dict:
         return {"error": f"مفيش job_board.keywords/locations في {CFG}"}
 
     pairs = [(k, l) for l in locations for k in keywords]
-    print(f"🔎 {len(keywords)} كلمة × {len(locations)} مكان = {len(pairs)} بحث\n")
+    total = len(pairs)
+
+    # الشريحة بتتحدد باليوم: نفس اليوم = نفس الشريحة، فإعادة
+    # التشغيل مابتزوّدش النشاط. ويوم بعده = شريحة بعدها، فالتغطية
+    # بتكتمل على مدار الأسبوع من غير ما التشغيلة الواحدة تكبر.
+    day = datetime.now(timezone.utc).toordinal()
+    start = (day * SEARCHES_PER_RUN) % max(total, 1)
+    pairs = (pairs + pairs)[start:start + SEARCHES_PER_RUN]
+
+    print(f"🔎 {len(pairs)} بحث من {total} (شريحة النهاردة)\n")
 
     cards: dict[str, dict] = {}
     jobs: list[Job] = []
@@ -261,10 +280,31 @@ def run(dry: bool = False, per_search: int = PER_SEARCH) -> dict:
                 print(f"   {loc:<16}{kw[:26]:<28}{len(got):>3} كارت"
                       f" · {len(fresh)} جديد")
 
-            print(f"\n📄 {len(cards)} وظيفة — بنقرا الأوصاف\n")
+            # الفلترة على العنوان **قبل** فتح أي صفحة وصف.
+            #
+            # بحث لينكدإن فضفاض: "AI Engineer" في السعودية بيرجّع
+            # "Junior Game Designer" و"German speaking Customer
+            # support". اتقاس: 73% من اللي دخل مش مطابق للدور.
+            #
+            # وكل واحدة من دول كانت بتفتح صفحة على الحساب من غير
+            # فايدة. فده مش تنضيف بيانات — ده تقليل نشاط.
+            off = [c for c in cards.values()
+                   if not targeting.matches_role(c["title"])]
+            for c in off:
+                del cards[c["id"]]
+            if off:
+                print(f"\n   ({len(off)} برّه تخصصك — مافتحناش صفحاتهم)")
+
             known = seen_ids(get_client())
             todo = [c for c in cards.values() if c["id"] not in known]
-            print(f"   ({len(cards) - len(todo)} متسجّلة قبل كده — بنعدّيها)\n")
+            skipped = len(cards) - len(todo)
+            if len(todo) > MAX_DESCRIBE:
+                print(f"   ({len(todo)} جديدة — هناخد {MAX_DESCRIBE} "
+                      f"والباقي التشغيلة الجاية)")
+                todo = todo[:MAX_DESCRIBE]
+            if skipped:
+                print(f"   ({skipped} متسجّلة قبل كده — بنعدّيها)")
+            print(f"\n📄 {len(todo)} وظيفة — بنقرا الأوصاف\n")
 
             for c in todo:
                 desc = describe(page, c)
