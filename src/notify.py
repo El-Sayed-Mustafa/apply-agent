@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 
-from . import telegram
+from . import genai_pool, telegram
 from .main import get_client
 
 load_dotenv()
@@ -109,7 +109,7 @@ def _tailored_cv(db, job: dict):
         from google import genai
         from . import render, tailor
 
-        client = genai.Client(api_key=key)
+        client = genai_pool.client()
         result, err = tailor.tailor(client, job)
         if not result:
             print(f"      (تظبيط فشل — {err[:70]})")

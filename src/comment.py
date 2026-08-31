@@ -26,7 +26,7 @@ from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
 
-from . import commenting, telegram
+from . import commenting, genai_pool, telegram
 from .linkedin import feed, session
 from .linkedin.session import Blocked
 from .main import get_client
@@ -108,7 +108,7 @@ def propose(db, limit: int) -> dict:
         return {"error": f"الميزانية اليومية خلصت ({DAILY})"}
 
     seen = known_keys(db)
-    client = genai.Client(api_key=key)
+    client = genai_pool.client()
     made = rejected = 0
     out = []
 

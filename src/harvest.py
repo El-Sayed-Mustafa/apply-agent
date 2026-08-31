@@ -39,6 +39,7 @@ import yaml
 from dotenv import load_dotenv
 from google.genai import types
 
+from . import genai_pool
 from .adapters import Job
 from .linkedin import session
 from .linkedin.session import Blocked
@@ -226,6 +227,9 @@ is_job = false لو المنشور:
 - إعلان عن كورس أو ويبينار أو منتج
 - تهنئة بوظيفة جديدة
 - كلام عام عن سوق العمل أو "شركتنا بتكبر"
+- **قايمة وظايف**: منشور بيسرد كذا وظيفة مع بعض ("10 AI roles
+  hiring now"، "وظايف الأسبوع"). احنا عايزين وظيفة **واحدة
+  محددة** بمسمى واحد — القايمة مالهاش مسمى ولا شركة ولا موقع
 
 انقل الكلام زي ما هو من المنشور. متخترعش اسم شركة ولا موقع ولا
 متطلبات مش مكتوبة — سيبها "" لو مش موجودة.
@@ -308,6 +312,29 @@ def to_job(post: dict, data: dict) -> Job:
     )
 
 
+def dedupe(jobs: list[Job]) -> list[Job]:
+    """
+    شيل المكرر جوّا التشغيلة.
+
+    البصمة فيها اسم الشركة، ولما اتنين يعيدوا نشر نفس الإعلان
+    الموديل بيقرا اسم الناشر كشركة — فنفس الوظيفة بتاخد بصمتين
+    وبتوصلك مرتين. بنقارن على المسمى والموقع بس.
+    """
+    seen, out = set(), []
+    for j in jobs:
+        # أول جزء من الموقع بس: "Toronto, Ontario" و"Toronto,
+        # Ontario, Canada" نفس المكان — والفرق ده لوحده كان بيمرّر
+        # الإعلان مرتين.
+        city = (j.location or "").split(",")[0]
+        k = (re.sub(r"\W+", "", (j.title or "").lower()),
+             re.sub(r"\W+", "", city.lower()))
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(j)
+    return out
+
+
 # ── التشغيل ─────────────────────────────────────────────────────────────
 
 def run(dry: bool = False, limit: int = MAX_POSTS) -> dict:
@@ -331,7 +358,7 @@ def run(dry: bool = False, limit: int = MAX_POSTS) -> dict:
             return {"error": f"اعتراض: {b}"}
 
     print(f"📰 {len(posts)} منشور\n")
-    client = genai.Client(api_key=key)
+    client = genai_pool.client()
     jobs, skipped = [], 0
 
     asked = 0
@@ -352,6 +379,8 @@ def run(dry: bool = False, limit: int = MAX_POSTS) -> dict:
         jobs.append(j)
         print(f"   ✅ {j.title[:42]:<44}{(j.company_name or '')[:22]:<24}"
               f"{j.location or '—'}")
+
+    jobs = dedupe(jobs)
 
     saved = []
     if jobs and not dry:

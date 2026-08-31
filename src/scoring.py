@@ -23,7 +23,7 @@ import yaml
 from google import genai
 from google.genai import types
 
-from . import targeting
+from . import genai_pool, targeting
 
 # الحصة المجانية **لكل موديل على حدة**. لما واحد يخلص، بننط للي بعده
 # بدل ما التشغيلة كلها تقف. الترتيب بالجودة: الأقوى الأول.
@@ -405,7 +405,7 @@ def run(db, limit: int = BATCH) -> dict:
     if not jobs:
         return {"pending": 0, "scored": 0, "failed": 0, "tokens": 0}
 
-    client = genai.Client(api_key=key)
+    client = genai_pool.client()
     cv_text = load_cv()
     started = time.time()
     scored = failed = tokens = refuted = 0

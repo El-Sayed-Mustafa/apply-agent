@@ -109,3 +109,48 @@ def test_source_is_tagged():
                                  "apply": "https://x.co/a", "summary": "s"})
     assert j.ats == "linkedin_post"
     assert j.url == "https://x.co/a"
+
+
+# ── المكرر جوّا التشغيلة ────────────────────────────────────────────────
+
+def test_repost_of_same_job_counted_once():
+    """
+    البصمة فيها اسم الشركة، ولما اتنين يعيدوا نشر نفس الإعلان
+    الموديل بيقرا اسم الناشر كشركة — فنفس الوظيفة كانت بتوصل مرتين.
+    اتقاست: "DEVOPS ENGINEER" وصلت مرتين من ناشرين مختلفين.
+    """
+    d = {"title": "DevOps Engineer", "location": "Toronto, Ontario",
+         "remote_type": "onsite", "apply": "", "summary": "s"}
+    a = harvest.to_job(_post(author="Offres d'Emploi"), {**d, "company": ""})
+    b = harvest.to_job(_post(author="4 RECRUTE"), {**d, "company": ""})
+    assert a.content_hash != b.content_hash        # البصمة مابتشيلهاش
+    assert len(harvest.dedupe([a, b])) == 1        # ودي بتشيلها
+
+
+def test_different_locations_both_kept():
+    """نفس المسمى في الرياض وفي دبي = فرصتين مختلفتين."""
+    d = {"title": "AI Engineer", "company": "X", "remote_type": "onsite",
+         "apply": "", "summary": "s"}
+    a = harvest.to_job(_post(), {**d, "location": "Riyadh"})
+    b = harvest.to_job(_post(), {**d, "location": "Dubai"})
+    assert len(harvest.dedupe([a, b])) == 2
+
+
+def test_roundup_posts_rejected_by_prompt():
+    """
+    "10 AI / ML roles hiring right now" اتسجل كوظيفة اسمها كده
+    وشركتها "Find me THE job" — قايمة مش وظيفة.
+    """
+    assert "قايمة وظايف" in harvest.PROMPT
+
+
+def test_location_suffix_does_not_split_a_duplicate():
+    """
+    "Brampton/Toronto, Ontario" و"…, Ontario, Canada" نفس الإعلان.
+    الفرق ده لوحده مرّره مرتين في تشغيلة حقيقية.
+    """
+    d = {"title": "DevOps Engineer", "company": "", "remote_type": "onsite",
+         "apply": "", "summary": "s"}
+    a = harvest.to_job(_post(author="A"), {**d, "location": "Toronto, Ontario"})
+    b = harvest.to_job(_post(author="B"), {**d, "location": "Toronto, Ontario, Canada"})
+    assert len(harvest.dedupe([a, b])) == 1
