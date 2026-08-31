@@ -16,3 +16,5 @@ spike/*.log
 # مستندات متولّدة
 *.docx
 logs/
+
+state/
