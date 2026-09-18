@@ -56,6 +56,40 @@ def clip(text: str | None, n: int) -> str:
     return t if len(t) <= n else t[: n - 1].rstrip() + "…"
 
 
+_TAG = re.compile(r"<(/?)([a-zA-Z][\w-]*)[^>]*>")
+
+
+def clip_html(text: str | None, n: int) -> str:
+    """
+    قص من غير ما نكسر وسم.
+
+    `caption[:1024]` الأعمى كان بيقطع نص وسم، وتليجرام بيرفض
+    الرسالة كلها: "Can't find end tag corresponding to ...".
+    وده معناه إن الوظيفة بتضيع خالص — زي Siemens في تشغيلة
+    2026-09-01. بنرجع لقبل الوسم المقطوع، وبنقفل اللي فضل مفتوح.
+    """
+    t = str(text or "")
+    if len(t) <= n:
+        return t
+
+    cut = t[:n]
+    lt, gt = cut.rfind("<"), cut.rfind(">")
+    if lt > gt:                      # القطع وقع جوّه وسم
+        cut = cut[:lt]
+
+    stack: list[str] = []
+    for closing, name in _TAG.findall(cut):
+        name = name.lower()
+        if closing:
+            if name in stack:
+                while stack and stack.pop() != name:
+                    pass
+        else:
+            stack.append(name)
+
+    return cut.rstrip() + "".join(f"</{name}>" for name in reversed(stack))
+
+
 def format_job(job: dict, score: dict) -> str:
     """
     الرسالة. مصمّمة تتقري على موبايل في ثانيتين:
@@ -209,7 +243,8 @@ def send_document(buf, filename: str, caption: str,
     ابعت ملف. الأزرار بتتحط على رسالة المستند نفسها — عشان يبقى فيه
     رسالة واحدة للوظيفة، مش اتنين.
     """
-    payload = {"chat_id": chat_id, "caption": caption[:1024], "parse_mode": "HTML"}
+    payload = {"chat_id": chat_id, "caption": clip_html(caption, 1024),
+               "parse_mode": "HTML"}
     if markup:
         import json as _json
         payload["reply_markup"] = _json.dumps(markup)

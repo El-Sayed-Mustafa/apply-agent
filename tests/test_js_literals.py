@@ -92,3 +92,23 @@ def test_no_python_string_broken_across_lines():
         except Exception:
             pass          # الاستيراد ممكن يفشل لأسباب تانية (مفاتيح، شبكة)
     assert not failed, "ليترال مكسور: " + " · ".join(failed)
+
+
+def test_no_control_characters_in_source():
+    """
+    `\b` جوّه نص بايثون بيتحول لمحرف backspace حقيقي (0x08) —
+    فالـregex بيبقى سليم في القراءة وبيفشل في التنفيذ. ضربنا في
+    `hiring.grad_year` ورجّع "مفيش سنة" لكل المرشّحين.
+
+    نفس عيلة الفخ بتاع `\n`، بس ده مابيكسرش الصياغة فمابيتمسكش
+    في الاستيراد.
+    """
+    import pathlib
+    bad = []
+    for f in pathlib.Path("src").rglob("*.py"):
+        text = f.read_text(encoding="utf-8")
+        for ch, name in ((chr(8), "backspace"), (chr(12), "formfeed"),
+                         (chr(11), "vtab"), (chr(7), "bell")):
+            if ch in text:
+                bad.append(f"{f}: {name}")
+    assert not bad, "محارف تحكّم في المصدر: " + " · ".join(bad)
