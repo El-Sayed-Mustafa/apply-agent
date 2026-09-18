@@ -44,27 +44,27 @@ YEARS = (2024, 2025, 2026)
 MAX_PROFILES = 10
 
 QUERIES = [
-    # ── المهارتين مع بعض ──
-    "web scraping SQL fresh graduate Cairo",
-    "python scraping SQL Egypt graduate",
-    "data analyst scraping SQL Cairo",
-    "selenium beautifulsoup SQL Egypt",
-    "scraping automation SQL junior Cairo",
-    "data engineer fresh graduate scraping Egypt",
-    "scrapy python SQL Cairo",
-    "web scraping data entry SQL Giza",
+    # ── بيدوّر بصراحة ──
+    "open to work data analyst SQL scraping Cairo",
+    "open to work python SQL Egypt fresh graduate",
+    "seeking opportunity data analyst python Cairo",
+    "looking for opportunity python SQL scraping Egypt",
+    "fresh graduate seeking data analyst Cairo SQL",
+    "immediately available data analyst python Cairo",
 
-    # ── الأدوات بالاسم: أدق من الكلمة العامة ──
-    "beautifulsoup pandas SQL Cairo graduate",
-    "playwright scraping python Egypt junior",
-    "selenium automation SQL Cairo entry level",
+    # ── متدرّب دلوقتي ──
+    "data analyst intern SQL python Cairo",
+    "data engineer intern scraping Egypt",
+    "python intern SQL web scraping Cairo",
+    "internship data analysis SQL Egypt",
+    "trainee data python SQL Cairo",
 
-    # ── توصيف الخريج الجديد ──
-    "fresh graduate python SQL Cairo",
-    "junior data analyst python scraping Egypt",
-    "computer science graduate scraping SQL Cairo",
+    # ── طالب أو خريج لسه ما اشتغلش ──
+    "computer science student python SQL scraping Cairo",
+    "fresh graduate python web scraping Egypt",
     "ITI graduate python SQL scraping",
-    "DEPI data python SQL Cairo",
+    "DEPI trainee data python SQL Cairo",
+    "junior data analyst no experience python SQL Cairo",
 ]
 
 # كام صفحة نتايج لكل بحث. لينكدإن بيعرض عشرة في الصفحة، والصفحة
@@ -156,17 +156,96 @@ def parse(row: dict) -> dict | None:
     }
 
 
-def looks_right(c: dict) -> tuple[bool, str]:
-    """فلترة رخيصة قبل ما نفتح أي ملف شخصي."""
+# ── حالة المرشّح ────────────────────────────────────────────────────────
+#
+# أول نسخة كانت بتدوّر على حد **عنده** المهارتين، فرجّعت ناس
+# شغالة في شركات: "Data Engineer | AWS"، "BI Engineer @ Instant".
+# دول مش هيسيبوا شغلهم عشان عرض من شركة صغيرة.
+#
+# المطلوب عكسه: حد بيدوّر دلوقتي، أو متدرّب، أو لسه بيتخرّج.
+# والإشارة لازم تكون **صريحة** — إن هو كاتبها بنفسه في البروفايل،
+# مش استنتاج من غياب اسم شركة.
+
+SEEKING = re.compile(
+    r"open\s*to\s*work|#?opentowork|"
+    # الكلام بيتحط بين الفعل والمفعول: "seeking a **Data Analyst**
+    # opportunity"، "looking for a **junior data** role". الصيغة
+    # الصارمة كانت بترفض الاتنين.
+    r"(?:seeking|looking\s+for|open\s+for|hunting\s+for)\s+"
+    r"(?:\w+[\s,|-]+){0,5}?(?:job|role|opportunit\w*|position|vacanc\w*)|"
+    r"actively\s+(?:seeking|looking)|"
+    r"available\s+(?:for|immediately)|immediately\s+available|"
+    r"ready\s+to\s+(?:join|start)|"
+    r"أبحث\s+عن\s+(?:عمل|وظيفة|فرصة)|متاح\s+للعمل|متاح\s+فورًا|"
+    r"مستعد\s+للعمل", re.I)
+
+INTERN = re.compile(
+    r"\b(intern|internship|trainee|apprentice|co-?op)\b|متدرّ?ب|تدريب", re.I)
+
+STUDENT = re.compile(
+    r"\b(student|undergraduate|senior\s+year|final\s+year|"
+    r"fresh\s+grad\w*|new\s+grad\w*)\b|طالب\w*|خريج\s+جديد|حديث\s+التخرج",
+    re.I)
+
+# شغّال في شركة دلوقتي — "@ Instant"، "at TAG"، "Engineer at X"
+EMPLOYED = re.compile(r"[@]\s*\w|\bat\s+[A-Z][\w&.-]{2,}", re.I)
+
+
+def status(c: dict) -> str | None:
+    """
+    بيدوّر · متدرّب · طالب — أو None لو مفيش إشارة.
+
+    الترتيب مقصود: "Data Analyst Intern, open to work" حالته
+    "بيدوّر" — دي أقوى إشارة وأقربها لقرار.
+    """
     text = f"{c['headline']} {c['blurb']}"
+    if SEEKING.search(text):
+        return "بيدوّر"
+    if INTERN.search(text):
+        return "متدرّب"
+    if STUDENT.search(text):
+        return "طالب"
+    return None
+
+
+def looks_right(c: dict) -> tuple[bool, str]:
+    """
+    فلترة رخيصة قبل ما نفتح أي ملف شخصي.
+
+    الترتيب من الأرخص للأغلى في الاستبعاد: المكان الأول (أوضح
+    شرط)، وبعدين الحالة (اللي بيفرّق بين مرشّح ومحترف مستقر)،
+    وبعدين المهارات.
+    """
+    text = f"{c['headline']} {c['blurb']}"
+
     if not CAIRO.search(f"{c['location']} {text}"):
         return False, "برّه القاهرة"
-    if not SCRAPING.search(text):
-        return False, "مفيش scraping"
-    if not SQL.search(text):
-        return False, "مفيش SQL"
+
+    st = status(c)
+    if not st:
+        return False, "مش بيدوّر ولا متدرّب"
+
+    # شغّال في شركة **ومش** متدرّب = مستقر، مش مرشّح
+    if st == "طالب" and EMPLOYED.search(c["headline"]) \
+            and not INTERN.search(c["headline"]):
+        return False, "شغّال في شركة"
+
+    # مهارة واحدة على الأقل في الكارت، مش الاتنين.
+    #
+    # كارت البحث سطرين. طلب المهارتين فيه رجّع **صفر** من 40
+    # نتيجة، رغم إن 15 منهم بيدوّروا فعلاً — الإشارة النادرة هي
+    # "بيدوّر"، والمهارات تفاصيل بتبان في البروفايل مش في الكارت.
+    has_scrap = bool(SCRAPING.search(text))
+    has_sql = bool(SQL.search(text))
+    if not (has_scrap or has_sql):
+        return False, "مفيش scraping ولا SQL"
+
     if SENIOR.search(c["headline"]):
         return False, "مش خريج جديد"
+
+    c["status"] = st
+    c["skills"] = ("scraping + SQL" if has_scrap and has_sql
+                   else "scraping" if has_scrap else "SQL")
     return True, ""
 
 
@@ -304,8 +383,53 @@ def enrich(page, cands: list[dict], cap: int = MAX_PROFILES) -> list[dict]:
         except Exception:
             text = ""
         out.append({**c, "grad": grad_year(text)})
-        print(f"   {c['name'][:22]:<24}{str(out[-1]['grad'] or '—'):<8}"
-              f"{c['headline'][:52]}")
+        print(f"   {c['name'][:20]:<22}{c.get('status', '—'):<10}"
+              f"{str(out[-1]['grad'] or '—'):<7}{c.get('skills', '—'):<16}"
+              f"{c['headline'][:38]}")
+    return out
+
+
+def confirm_skills(page, cands: list[dict]) -> list[dict]:
+    """
+    أكّد المهارتين من البروفايل نفسه.
+
+    الكارت بيقول SQL وبس — ولا واحد من 13 مرشّح ذكر scraping فيه،
+    مش لإنهم مش بيعرفوا، لإن الكارت سطرين. والـscraping هو أهم
+    شرط، فتسليم قايمة "SQL مؤكّد، scraping مش معروف" ناقص.
+
+    بيتعمل **بعد** فلتر السنة عن قصد: السنة أرخص تمييز عندنا
+    (صفحة واحدة صغيرة)، فبتقلّل عدد البروفايلات اللي نفتحها من
+    13 لـ5. الترتيب هنا هو الفرق بين 26 صفحة و18.
+    """
+    out = []
+    for c in cands:
+        try:
+            page.goto(c["url"], wait_until="domcontentloaded", timeout=45_000)
+        except Exception:
+            out.append({**c, "confirmed": None})
+            continue
+
+        session.human_pause(4, 8)
+        session.guard(page)
+        for _ in range(3):
+            page.mouse.wheel(0, 1500)
+            page.wait_for_timeout(1100)
+
+        try:
+            text = page.evaluate(JS_PROFILE)
+        except Exception:
+            text = ""
+
+        scrap = bool(SCRAPING.search(text))
+        sql = bool(SQL.search(text))
+        c2 = {**c,
+              "confirmed": ("scraping + SQL" if scrap and sql
+                            else "scraping" if scrap
+                            else "SQL" if sql else "مفيش"),
+              "scraping": scrap}
+        out.append(c2)
+        mark = "✅" if scrap else "•"
+        print(f"   {mark} {c['name'][:20]:<22}{c2['confirmed']}")
     return out
 
 
@@ -327,15 +451,26 @@ def store(state: dict) -> None:
 
 
 def message(cands: list[dict]) -> str:
+    """
+    الرسالة بتقول **اللي اتأكد**، مش اللي اتمنيناه.
+
+    الكارت بيقول SQL وبس لكل المرشّحين — فسطر "scraping + SQL"
+    في العنوان كان هيبقى ادّعاء. اللي بيتكتب هنا هو نتيجة قراءة
+    البروفايل، ومين مامعناهوش scraping بيبان كده.
+    """
     esc = telegram.esc
-    head = f"👤 <b>{len(cands)} مرشّح</b> — scraping + SQL · القاهرة\n"
-    parts = [head]
+    n_scrap = sum(1 for c in cands if c.get("scraping"))
+    parts = [f"👤 <b>{len(cands)} مرشّح</b> · القاهرة"
+             f" · {n_scrap} منهم scraping مؤكّد\n"]
+
     for c in cands:
+        bits = [c.get("status"), str(c["grad"]) if c.get("grad") else None,
+                c.get("confirmed") or c.get("skills")]
+        line = " · ".join(x for x in bits if x)
         parts.append(
-            f"\n<b>{esc(c['name'])}</b>"
-            f"{' · ' + str(c['grad']) if c.get('grad') else ''}\n"
+            f"\n<b>{esc(c['name'])}</b>\n"
+            f"{esc(line)}\n"
             f"{esc(c['headline'])}\n"
-            f"{esc(c['location'])}\n"
             f"{esc(c['url'])}\n")
     return "".join(parts)[:3900]
 
@@ -365,10 +500,21 @@ def run(dry: bool = False, cap: int = MAX_PROFILES) -> dict:
 
             fresh = [c for c in keep if c["url"] not in state]
             enriched = enrich(page, fresh, cap)
+
+            # فلتر السنة الأول، وبعدين تأكيد المهارات — السنة
+            # أرخص تمييز، فبتقلّل البروفايلات اللي نفتحها.
+            in_years = [c for c in enriched if c.get("grad") in YEARS]
+            if in_years:
+                print(f"\n🔬 {len(in_years)} في السنين — بنأكّد المهارات\n")
+                done = confirm_skills(page, in_years)
+                by_url = {c["url"]: c for c in done}
+                enriched = [by_url.get(c["url"], c) for c in enriched]
         except Blocked as b:
             return {"error": f"اعتراض: {b}"}
 
     final = [c for c in enriched if c.get("grad") in YEARS]
+    # الـscraping أهم شرط — اللي اتأكد بيتقدّم
+    final.sort(key=lambda c: (not c.get("scraping"), -(c.get("grad") or 0)))
     old = [c for c in enriched if c.get("grad") and c["grad"] not in YEARS]
 
     print(f"\n📊 {len(enriched)} اتقرا · {len(final)} في سنين التخرج"
@@ -379,6 +525,9 @@ def run(dry: bool = False, cap: int = MAX_PROFILES) -> dict:
             "at": datetime.now(timezone.utc).isoformat(),
             "name": c["name"], "grad": c.get("grad"),
             "headline": c["headline"], "location": c["location"],
+            "status": c.get("status"),
+            "skills": c.get("confirmed") or c.get("skills"),
+            "scraping": c.get("scraping"),
             "match": c.get("grad") in YEARS,
         }
     if not dry:

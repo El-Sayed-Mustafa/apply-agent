@@ -50,35 +50,120 @@ def ok(headline, blurb="", location="Cairo, Egypt"):
                                "location": location})
 
 
-def test_the_target_passes():
-    assert ok("Junior Data Analyst | Python",
-              "Web scraping with Selenium and SQL reporting")[0]
+def test_settled_professional_rejected():
+    """
+    أول نسخة رجّعت "Data Engineer | AWS" و"BI Engineer @ Instant" —
+    ناس شغالة ومستقرة. دول مش هيسيبوا شغلهم عشان عرض من شركة
+    صغيرة، فوجودهم في القايمة ضجيج.
+    """
+    good, why = ok("Data Engineer | AWS", "Python, SQL, web scraping at TAG")
+    assert not good and "بيدوّر" in why
 
 
-@pytest.mark.parametrize("headline,blurb,why", [
-    ("Junior Data Analyst", "SQL reporting only", "مفيش scraping"),
-    ("Junior Data Analyst", "Selenium scraping", "مفيش SQL"),
+@pytest.mark.parametrize("headline", [
+    "Data Analyst | Open to Work",
+    "Python Developer | #OpenToWork",
+    "Seeking a Data Analyst opportunity",
+    "Looking for a junior data role",
+    "Immediately available | Data Analyst",
+    "محلل بيانات | أبحث عن عمل",
+    "مهندس بيانات | متاح للعمل",
 ])
-def test_needs_both_skills(headline, blurb, why):
+def test_seeking_passes(headline):
+    assert ok(headline, "SQL and web scraping projects")[0]
+
+
+@pytest.mark.parametrize("headline", [
+    "Data Analyst Intern @ Vodafone",
+    "Data Engineering Trainee",
+    "Machine Learning Intern",
+    "متدرب تحليل بيانات",
+])
+def test_intern_passes(headline):
+    assert ok(headline, "SQL scraping python")[0]
+
+
+@pytest.mark.parametrize("headline", [
+    "Computer Science Student | Python",
+    "Final year student, Faculty of Computers",
+    "Fresh Graduate | Data Analysis",
+    "طالب علوم حاسب",
+])
+def test_student_passes(headline):
+    assert ok(headline, "web scraping and SQL")[0]
+
+
+def test_status_prefers_seeking():
     """
-    المهارتين مطلوبين مع بعض — واحدة منهم بس مش المطلوب.
+    "Data Analyst Intern, open to work" حالته "بيدوّر" — دي أقوى
+    إشارة وأقربها لقرار.
     """
-    good, reason = ok(headline, blurb)
-    assert not good and reason == why
+    assert hiring.status({"headline": "Data Analyst Intern | Open to Work",
+                          "blurb": ""}) == "بيدوّر"
+
+
+def test_status_none_for_the_settled():
+    assert hiring.status({"headline": "Senior Data Engineer at Fawry",
+                          "blurb": "SQL scraping"}) is None
+
+
+def test_employed_student_rejected():
+    """
+    "Student" في العنوان مع شغل فعلي في شركة مش مرشّح — ده حد
+    بيدرس وشغّال، مش بيدوّر.
+    """
+    good, why = ok("Data Analyst at Fawry | MSc Student",
+                   "SQL scraping python")
+    assert not good
+
+
+def test_status_recorded_on_the_candidate():
+    """الحالة لازم توصله في الرسالة — هي أهم من المسمى."""
+    c = {"headline": "Open to Work | Data Analyst",
+         "blurb": "SQL scraping", "location": "Cairo"}
+    hiring.looks_right(c)
+    assert c["status"] == "بيدوّر"
+
+
+def test_one_skill_is_enough_on_the_card():
+    """
+    كارت البحث سطرين. طلب المهارتين فيه رجّع **صفر** من 40 نتيجة،
+    رغم إن 15 منهم بيدوّروا فعلاً — الإشارة النادرة هي "بيدوّر"،
+    والمهارات تفاصيل بتبان في البروفايل مش في الكارت.
+    """
+    assert ok("Open to Work | Data Analyst", "SQL reporting")[0]
+    assert ok("Open to Work | Data Analyst", "Selenium scraping")[0]
+
+
+def test_neither_skill_rejected():
+    good, why = ok("Open to Work | Graphic Designer", "Photoshop and Figma")
+    assert not good and "scraping" in why
+
+
+def test_skills_reported_on_the_candidate():
+    """
+    القايمة للمراجعة، فلازم تقول إيه اللي اتشاف فعلاً — "SQL" بس
+    غير "scraping + SQL".
+    """
+    c = {"headline": "Open to Work | Data Analyst",
+         "blurb": "SQL and web scraping", "location": "Cairo"}
+    hiring.looks_right(c)
+    assert c["skills"] == "scraping + SQL"
+
+    c2 = {"headline": "Open to Work | Data Analyst",
+          "blurb": "SQL reporting", "location": "Cairo"}
+    hiring.looks_right(c2)
+    assert c2["skills"] == "SQL"
 
 
 def test_outside_cairo_rejected():
-    good, reason = ok("Data Analyst", "scraping and SQL",
+    good, reason = ok("Open to Work | Data Analyst", "scraping and SQL",
                       location="Mianwali District, Punjab, Pakistan")
     assert not good and "القاهرة" in reason
 
 
 def test_senior_rejected():
-    """
-    "Senior Data Extraction Expert" ظهر في أول بحث حقيقي — عنده
-    المهارتين بس مش خريج جديد.
-    """
-    good, reason = ok("Senior Data Extraction Expert",
+    good, reason = ok("Senior Data Extraction Expert | Open to Work",
                       "web scraping SQL data mining")
     assert not good and "خريج" in reason
 
@@ -93,6 +178,16 @@ def test_scraping_synonyms(word):
                                   "قواعد بيانات"])
 def test_sql_synonyms(word):
     assert hiring.SQL.search(word)
+
+
+def test_queries_target_seekers():
+    """
+    الاستعلامات نفسها لازم تدوّر على بيدوّر/متدرّب — الفلترة
+    وحدها بتشتغل على بركة غلط.
+    """
+    joined = " ".join(hiring.QUERIES).lower()
+    for must in ("open to work", "intern", "seeking", "student"):
+        assert must in joined
 
 
 # ── سنة التخرج ─────────────────────────────────────────────────────────
@@ -189,3 +284,39 @@ def test_language_suffix_is_the_same_person():
 def test_different_people_stay_different():
     assert (hiring.same_person("https://www.linkedin.com/in/ahmed-tayel99/")
             != hiring.same_person("https://www.linkedin.com/in/salah-mahmoud/"))
+
+
+# ── تأكيد المهارات ──────────────────────────────────────────────────────
+
+def test_confirmation_runs_after_the_year_filter():
+    """
+    السنة أرخص تمييز عندنا (صفحة صغيرة واحدة). لو أكّدنا المهارات
+    الأول، بنفتح 13 بروفايل بدل 5 — الترتيب هو الفرق بين 26 صفحة
+    و18.
+    """
+    import inspect
+    src = inspect.getsource(hiring.run)
+    assert src.index("enrich(page") < src.index("confirm_skills(page")
+    assert src.index("in YEARS") < src.index("confirm_skills(page")
+
+
+def test_scraping_ranks_first():
+    """
+    الـscraping أهم شرط في الطلب، فاللي اتأكد عنده لازم يتقدّم
+    في القايمة.
+    """
+    cands = [
+        {"name": "a", "grad": 2025, "scraping": False},
+        {"name": "b", "grad": 2024, "scraping": True},
+    ]
+    cands.sort(key=lambda c: (not c.get("scraping"), -(c.get("grad") or 0)))
+    assert [c["name"] for c in cands] == ["b", "a"]
+
+
+def test_card_skills_are_a_fallback_not_the_answer():
+    """
+    ولا واحد من 13 مرشّح ذكر scraping في الكارت — مش لإنهم مش
+    بيعرفوا، لإن الكارت سطرين. التسليم لازم يقول اللي اتأكد.
+    """
+    import inspect
+    assert "confirmed" in inspect.getsource(hiring.message)
