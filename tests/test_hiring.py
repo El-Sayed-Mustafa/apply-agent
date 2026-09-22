@@ -320,3 +320,69 @@ def test_card_skills_are_a_fallback_not_the_answer():
     """
     import inspect
     assert "confirmed" in inspect.getsource(hiring.message)
+
+
+# ── تسريب البروفايلات المقترحة ──────────────────────────────────────────
+
+MARINA = """Marina Kamal
+Data Engineering Trainee @DEPI | Excel | Python | SQL
+About
+Proficient with Excel, SQL, Power BI, and Python.
+More profiles for you
+Abdallah Nasser
+BI & Data Analyst @ MSD | Python | SQL | Power BI | Web Scraping
+"""
+
+
+def test_suggested_profiles_do_not_count():
+    """
+    "Web Scraping" عند Marina و Mariam و Mazen كانت جاية من بروفايل
+    مقترح تحت صفحتهم — والرسالة قالت "scraping مؤكّد" لتلاتة
+    ماكتبوهاش خالص.
+    """
+    own = hiring.own_part(MARINA)
+    assert "SQL" in own
+    assert not hiring.SCRAPING.search(own)
+
+
+def test_own_part_keeps_everything_without_sidebar():
+    t = "Ahmed\nSkills\nWeb Scraping\nData Scraping"
+    assert hiring.own_part(t) == t
+
+
+def test_every_profile_read_is_trimmed():
+    """أي قراءة لصفحة شخص لازم تشيل الاقتراحات — التعليم والمهارات والبروفايل."""
+    import inspect
+    for fn in (hiring.enrich, hiring.confirm_skills):
+        src = inspect.getsource(fn)
+        assert "own_part(page.evaluate" in src, fn.__name__
+
+
+def test_skills_page_is_read():
+    """Ahmed Khaled Negm كان كاتب Web Scraping في صفحة المهارات بس."""
+    import inspect
+    assert "/details/skills/" in inspect.getsource(hiring.confirm_skills)
+
+
+# ── المكان ──────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("loc", [
+    "Cairo, Egypt", "Qesm El Maadi, Cairo, Egypt", "Giza, Egypt",
+    "6th of October, Al Jizah, Egypt", "Egypt", "القاهرة، مصر",
+])
+def test_cairo_and_giza_pass(loc):
+    assert hiring.in_cairo(loc)
+
+
+@pytest.mark.parametrize("loc", [
+    "El Zaqaziq, Sharkia, Egypt",
+    "Benha, Al Qalyubiyah, Egypt",
+    "Alexandria, Egypt",
+    "El Sadat City, Al Minufiyah, Egypt",
+])
+def test_other_egyptian_cities_rejected(loc):
+    """
+    "Egypt" لوحدها كانت بتعدّي أي حد في مصر: الزقازيق وصلت القايمة
+    على إنها القاهرة.
+    """
+    assert not hiring.in_cairo(loc)

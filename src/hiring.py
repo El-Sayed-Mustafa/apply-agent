@@ -95,6 +95,22 @@ SENIOR = re.compile(
 CAIRO = re.compile(
     r"\b(cairo|giza|egypt)\b|القاهرة|الجيزة|مصر", re.I)
 
+# "Egypt" لوحدها كانت بتعدّي أي حد في مصر: "El Zaqaziq, Sharkia, Egypt"
+# وصل القايمة على إنه القاهرة. المدينة لازم تكون القاهرة أو الجيزة أو
+# حي منهم؛ "Egypt" بس مقبولة لما تكون هي الموقع كله (مش معروف أكتر).
+CAIRO_CITY = re.compile(
+    r"\b(cairo|giza|maadi|nasr\s+city|heliopolis|zamalek|mokattam|"
+    r"6th\s+of\s+october|october|sheikh\s+zayed|shubra|dokki|mohandessin|"
+    r"haram|faisal|helwan|obour|shorouk|rehab|madinaty)\b|"
+    r"القاهرة|الجيزة|المعادي|مدينة نصر|أكتوبر|الشيخ زايد", re.I)
+
+
+def in_cairo(location: str, text: str = "") -> bool:
+    loc = (location or "").strip()
+    if loc:
+        return bool(CAIRO_CITY.search(loc)) or loc.lower() in ("egypt", "مصر")
+    return bool(CAIRO_CITY.search(text))
+
 # سطر الاسم في البطاقة بينتهي بدرجة الاتصال
 NAME_LINE = re.compile(r"^(.{2,60}?)\s*[•·]\s*(1st|2nd|3rd\+?)\s*$", re.I)
 
@@ -218,7 +234,7 @@ def looks_right(c: dict) -> tuple[bool, str]:
     """
     text = f"{c['headline']} {c['blurb']}"
 
-    if not CAIRO.search(f"{c['location']} {text}"):
+    if not in_cairo(c["location"], text):
         return False, "برّه القاهرة"
 
     st = status(c)
@@ -379,7 +395,7 @@ def enrich(page, cands: list[dict], cap: int = MAX_PROFILES) -> list[dict]:
         page.wait_for_timeout(1400)
 
         try:
-            text = page.evaluate(JS_PROFILE)
+            text = own_part(page.evaluate(JS_PROFILE))
         except Exception:
             text = ""
         out.append({**c, "grad": grad_year(text)})
@@ -387,6 +403,21 @@ def enrich(page, cands: list[dict], cap: int = MAX_PROFILES) -> list[dict]:
               f"{str(out[-1]['grad'] or '—'):<7}{c.get('skills', '—'):<16}"
               f"{c['headline'][:38]}")
     return out
+
+
+# صفحات لينكدإن بتحط بروفايلات ناس تانيين تحت صاحب الصفحة. الكلمة
+# اللي في الجزء ده مش بتاعته — "Web Scraping" عند Marina و Mariam و
+# Mazen كانت جاية من هناك، والرسالة قالت "scraping مؤكّد" لتلاتة
+# ماكتبوهاش خالص.
+SIDEBAR = re.compile(
+    r"More profiles for you|People you may know|People also viewed|"
+    r"Explore premium profiles|You might like|"
+    r"بروفايلات أخرى|أشخاص قد تعرفهم|شاهد الأشخاص أيضًا", re.I)
+
+
+def own_part(text: str) -> str:
+    """نص صاحب الصفحة بس — قبل أول قسم اقتراحات."""
+    return SIDEBAR.split(text or "", maxsplit=1)[0]
 
 
 def confirm_skills(page, cands: list[dict]) -> list[dict]:
@@ -416,9 +447,22 @@ def confirm_skills(page, cands: list[dict]) -> list[dict]:
             page.wait_for_timeout(1100)
 
         try:
-            text = page.evaluate(JS_PROFILE)
+            text = own_part(page.evaluate(JS_PROFILE))
         except Exception:
             text = ""
+
+        # المهارات في صفحة لوحدها — البروفايل بيعرض أول كام واحدة بس.
+        # Ahmed Khaled Negm كان كاتب Web Scraping هناك بس.
+        try:
+            page.goto(c["url"].rstrip("/") + "/details/skills/",
+                      wait_until="domcontentloaded", timeout=45_000)
+            session.human_pause(3, 6)
+            session.guard(page)
+            page.mouse.wheel(0, 1500)
+            page.wait_for_timeout(1000)
+            text += "\n" + own_part(page.evaluate(JS_PROFILE))
+        except Exception:
+            pass
 
         scrap = bool(SCRAPING.search(text))
         sql = bool(SQL.search(text))
