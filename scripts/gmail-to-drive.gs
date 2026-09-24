@@ -37,7 +37,21 @@ const SHEET_NAME = 'Applications Log';
 // من يوم واحد، ورسايل يوم 23 فضلت في الإنبوكس.
 const CHECKED = LABEL + '/Checked';
 
-const QUERY = 'newer_than:30d -label:"' + CHECKED + '"';
+// نطاق البحث. من غيره الاستعلام بيفحص **كل** إيميل في الصندوق —
+// إشعارات ChatGPT و Anthropic و Render و Supabase — ويحطلها لِيبل.
+// ده اللي حصل: 247 محادثة اتلبّست Checked وهي مالهاش علاقة.
+//
+// بنستبعد المرسِلين الآليين، وبنطلب إشارة توظيف في العنوان أو
+// وجود مرفق. الفلترة الدقيقة بتحصل بعدين على النص نفسه.
+const SCOPE =
+  '-from:noreply -from:no-reply -from:notifications -from:notification ' +
+  '-category:promotions -category:social -category:forums ' +
+  '(has:attachment OR subject:(scraping OR scarping OR scrapping OR ' +
+  '"data analyst" OR "python developer" OR "data engineer" OR cv OR ' +
+  'resume OR application OR applying OR hiring OR "join the team" OR ' +
+  'وظيفة OR تقديم OR مهندس))';
+
+const QUERY = 'newer_than:30d -label:"' + CHECKED + '" ' + SCOPE;
 
 // يطلع من الإنبوكس بعد ما يتسجّل. خليها false لو عايزه يفضل.
 const ARCHIVE = true;
@@ -47,6 +61,10 @@ const ARCHIVE = true;
 // بتكمّل من حيث انتهينا.
 const BATCH = 25;
 const TIME_BUDGET_MS = 4.5 * 60 * 1000;
+
+// اسم ملف شكله سيرة ذاتية. ده بيفرّق بين "Mahmoud_Atef_CV.pdf"
+// وبين "invoice.pdf" لما الرسالة نفسها مافيهاش كلام.
+const CV_NAME = /\b(cv|resume|r[ée]sum[ée]|سيرة|ذاتية)\b/i;
 
 const ALLOWED = ['pdf', 'doc', 'docx', 'rtf', 'odt', 'txt', 'md',
                  'png', 'jpg', 'jpeg'];
@@ -92,7 +110,13 @@ function processApplications() {
         const subject = msg.getSubject() || '';
         const body = (msg.getPlainBody() || '').slice(0, 2000);
 
-        if (files.length === 0 && !APPLY.test(subject + ' ' + body)) {
+        // وجود مرفق لوحده **مش** كفاية: فواتير Anthropic وتقارير
+        // Supabase بتيجي PDF، وكانت بتتسجّل كطلبات. لازم إشارة
+        // توظيف في النص، أو اسم ملف شكله سيرة ذاتية.
+        const cvFile = files.some(function (f) {
+          return CV_NAME.test(f.getName());
+        });
+        if (!cvFile && !APPLY.test(subject + ' ' + body)) {
           skipped++;
           return;
         }
@@ -230,6 +254,35 @@ function seenIds_(sheet) {
 
 
 // ── التركيب ─────────────────────────────────────────────────────────────
+
+/**
+ * شيل لِيبل Checked من اللي اتلبّس وهو مش طلب.
+ *
+ * أول نسخة كانت بتفحص الصندوق كله، فـ247 محادثة — إشعارات
+ * وفواتير — خدت اللِيبل. دي بتشيله من أي محادثة مالهاش لِيبل
+ * Applications، فالنطاق الجديد يبدأ نضيف.
+ *
+ * شغّلها **مرة واحدة** بعد ما تحدّث السكريبت.
+ */
+function cleanupChecked() {
+  const started = Date.now();
+  const checked = GmailApp.getUserLabelByName(CHECKED);
+  if (!checked) {
+    console.log('مفيش لِيبل Checked أصلاً.');
+    return;
+  }
+
+  let removed = 0;
+  while (Date.now() - started < TIME_BUDGET_MS) {
+    const threads = GmailApp.search(
+      'label:"' + CHECKED + '" -label:"' + LABEL + '"', 0, 100);
+    if (!threads.length) { break; }
+    checked.removeFromThreads(threads);
+    removed += threads.length;
+  }
+  console.log('اتشال اللِيبل من ' + removed + ' محادثة.');
+}
+
 
 /** شغّلها مرة واحدة: بتاخد الصلاحيات وبتظبّط التشغيل التلقائي. */
 function setUp() {
