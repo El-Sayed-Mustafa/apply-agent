@@ -29,16 +29,24 @@ const LABEL = 'Applications';
 const FOLDER = 'Applications';
 const SHEET_NAME = 'Applications Log';
 
-// آخر 30 يوم، واللي ماخدش اللِيبل لسه. الشرط التاني هو اللي
-// بيمنع التكرار وبيخلّي المتراكم يخلص على مدار كام تشغيلة.
-const QUERY = 'newer_than:30d -label:' + LABEL;
+// لِيبل على **كل** محادثة اتفحصت، حتى اللي طلعت مش طلب.
+//
+// من غيره، الرسالة اللي مش طلب مابتاخدش لِيبل فبتفضل في نتيجة
+// البحث للأبد وبتاكل من حصة التشغيلة. لما عددها يكبر، الفرز
+// بيقف والقديم ما يوصلّهوش دور — وده اللي حصل: 143 اتسجّلوا
+// من يوم واحد، ورسايل يوم 23 فضلت في الإنبوكس.
+const CHECKED = LABEL + '/Checked';
+
+const QUERY = 'newer_than:30d -label:"' + CHECKED + '"';
 
 // يطلع من الإنبوكس بعد ما يتسجّل. خليها false لو عايزه يفضل.
 const ARCHIVE = true;
 
-// Apps Script بيوقف بعد 6 دقايق. 40 محادثة في التشغيلة تخلص
-// في أقل من دقيقتين، والباقي بياخد دوره في اللي بعدها.
-const MAX_THREADS = 40;
+// Apps Script بيوقف بعد 6 دقايق. بنشتغل على دفعات لحد ما
+// المتراكم يخلص أو نقرّب من الحد — ساعتها التشغيلة اللي بعدها
+// بتكمّل من حيث انتهينا.
+const BATCH = 25;
+const TIME_BUDGET_MS = 4.5 * 60 * 1000;
 
 const ALLOWED = ['pdf', 'doc', 'docx', 'rtf', 'odt', 'txt', 'md',
                  'png', 'jpg', 'jpeg'];
@@ -57,54 +65,67 @@ const APPLY = new RegExp(
 // ── التشغيل ─────────────────────────────────────────────────────────────
 
 function processApplications() {
+  const started = Date.now();
   const label = getLabel_(LABEL);
+  const checked = getLabel_(CHECKED);
   const root = getFolder_(FOLDER);
   const sheet = getSheet_(root, SHEET_NAME);
   const seen = seenIds_(sheet);
 
-  const threads = GmailApp.search(QUERY, 0, MAX_THREADS);
-  let moved = 0, skipped = 0;
+  let moved = 0, skipped = 0, scanned = 0;
 
-  threads.forEach(function (thread) {
-    let matched = false;
+  // دفعات لحد ما المتراكم يخلص أو الوقت يقرّب. البحث دايمًا
+  // بيرجّع اللي ماتفحصش، فمفيش صفحة تانية — كل دفعة بتبدأ من صفر.
+  while (Date.now() - started < TIME_BUDGET_MS) {
+    const threads = GmailApp.search(QUERY, 0, BATCH);
+    if (!threads.length) { break; }
+    scanned += threads.length;
 
-    thread.getMessages().forEach(function (msg) {
-      const id = msg.getId();
-      if (seen[id]) { return; }
+    threads.forEach(function (thread) {
+      let matched = false;
 
-      const files = saveAttachments_(msg, root);
-      const subject = msg.getSubject() || '';
-      const body = (msg.getPlainBody() || '').slice(0, 2000);
+      thread.getMessages().forEach(function (msg) {
+        const id = msg.getId();
+        if (seen[id]) { return; }
 
-      if (files.length === 0 && !APPLY.test(subject + ' ' + body)) {
-        skipped++;
-        return;
+        const files = saveAttachments_(msg, root);
+        const subject = msg.getSubject() || '';
+        const body = (msg.getPlainBody() || '').slice(0, 2000);
+
+        if (files.length === 0 && !APPLY.test(subject + ' ' + body)) {
+          skipped++;
+          return;
+        }
+
+        sheet.appendRow([
+          msg.getDate(),
+          senderName_(msg),
+          senderEmail_(msg),
+          subject,
+          body.replace(/\s+/g, ' ').slice(0, 500),
+          files.map(function (f) { return f.getName(); }).join(', '),
+          files.length ? files[0].getUrl() : '',
+          id,
+          ''          // Status — تملاه انت
+        ]);
+        seen[id] = true;
+        matched = true;
+        moved++;
+      });
+
+      // اللِيبل ده بيتحط على كل محادثة اتفحصت — هو اللي بيخرّجها
+      // من البحث. من غيره الدفعة الجاية بترجعها تاني والفرز بيقف.
+      thread.addLabel(checked);
+      if (matched) {
+        thread.addLabel(label);
+        if (ARCHIVE) { thread.moveToArchive(); }
       }
-
-      sheet.appendRow([
-        msg.getDate(),
-        senderName_(msg),
-        senderEmail_(msg),
-        subject,
-        body.replace(/\s+/g, ' ').slice(0, 500),
-        files.map(function (f) { return f.getName(); }).join(', '),
-        files.length ? files[0].getUrl() : '',
-        id,
-        ''          // Status — تملاه انت
-      ]);
-      seen[id] = true;
-      matched = true;
-      moved++;
     });
-
-    if (matched) {
-      thread.addLabel(label);
-      if (ARCHIVE) { thread.moveToArchive(); }
-    }
-  });
+  }
 
   console.log(moved + ' طلب جديد · ' + skipped + ' مش طلب · ' +
-              threads.length + ' محادثة اتفحصت');
+              scanned + ' محادثة اتفحصت · ' +
+              Math.round((Date.now() - started) / 1000) + 'ث');
 }
 
 
