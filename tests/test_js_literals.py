@@ -104,8 +104,12 @@ def test_no_control_characters_in_source():
     في الاستيراد.
     """
     import pathlib
+    # الحارس ده كان بيفحص src/*.py بس — و`` اتحول لمحرف backspace
+    # في scripts/*.gs وعدّى، لإن ملفات Apps Script مش بايثون.
     bad = []
-    for f in pathlib.Path("src").rglob("*.py"):
+    files = list(pathlib.Path("src").rglob("*.py"))
+    files += list(pathlib.Path("scripts").glob("*.gs"))
+    for f in files:
         text = f.read_text(encoding="utf-8")
         for ch, name in ((chr(8), "backspace"), (chr(12), "formfeed"),
                          (chr(11), "vtab"), (chr(7), "bell")):
