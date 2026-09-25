@@ -78,7 +78,7 @@ const APPLY = /scrap|scarp|data\s*analyst|python\s*develop|data\s*engineer|apply
  * ارجّعها بإيدك.
  */
 function cleanLog() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = logBook_();
   const log = ss.getSheetByName(LOG_SHEET) || ss.getSheets()[0];
   const rows = log.getDataRange().getValues();
   const head = rows[0];
@@ -118,7 +118,7 @@ function cleanLog() {
 // ── الفرز ───────────────────────────────────────────────────────────────
 
 function buildShortlist() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = logBook_();
   const log = ss.getSheetByName(LOG_SHEET) || ss.getSheets()[0];
   const rows = log.getDataRange().getValues();
 
@@ -200,6 +200,22 @@ function buildShortlist() {
 
 
 // ── مساعدات ─────────────────────────────────────────────────────────────
+
+/**
+ * افتح دفتر الشيت بالاسم.
+ *
+ * `getActiveSpreadsheet()` بيشتغل بس لو السكريبت متربط بالشيت.
+ * ده مشروع مستقل، فبيرجّع null والفرز بيقع على أول سطر.
+ */
+function logBook_() {
+  const root = getFolder_(FOLDER);
+  const it = root.getFilesByName(SHEET_NAME);
+  if (!it.hasNext()) {
+    throw new Error('مالقيتش شيت "' + SHEET_NAME + '" في فولدر ' + FOLDER);
+  }
+  return SpreadsheetApp.open(it.next());
+}
+
 
 function byScore_(a, b) { return b[0] - a[0]; }
 
