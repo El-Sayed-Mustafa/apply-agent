@@ -62,9 +62,12 @@ const ARCHIVE = true;
 const BATCH = 25;
 const TIME_BUDGET_MS = 4.5 * 60 * 1000;
 
-// اسم ملف شكله سيرة ذاتية. ده بيفرّق بين "Mahmoud_Atef_CV.pdf"
-// وبين "invoice.pdf" لما الرسالة نفسها مافيهاش كلام.
-const CV_NAME = /\b(cv|resume|r[ée]sum[ée]|سيرة|ذاتية)\b/i;
+// اسم ملف شكله سيرة ذاتية — بيفرّق بين CV.pdf و invoice.pdf.
+//
+// مابنستخدمش  هنا: الشرطة السفلية محسوبة حرف كلمة، فـ
+// "Mahmoud_Mabrouk_ATS_CV.pdf" مكنش بيتطابق و"CV.pdf" كان
+// بيتطابق — وأي حد بعت سيرته من غير رسالة راح لسلة "مش طلبات".
+const CV_NAME = /(^|[^a-z])(cv|resume|r[ée]sum[ée]|سيرة|ذاتية)([^a-z]|$)/i;
 
 const ALLOWED = ['pdf', 'doc', 'docx', 'rtf', 'odt', 'txt', 'md',
                  'png', 'jpg', 'jpeg'];
