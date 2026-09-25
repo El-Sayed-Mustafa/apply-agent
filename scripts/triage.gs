@@ -177,23 +177,24 @@ function buildShortlist() {
 
     // المهارة مش مذكورة في الإيميل ≠ مش موجودة: الرسالة 500 حرف
     // والـCV ممكن يكون فيها. دول بيتراجعوا مش بيتشالوا.
-    (hasSql && hasPy ? short : review).push(row);
+    (inEgypt && hasSql && hasPy ? short : review).push(row);
   }
 
   short.sort(byScore_);
   review.sort(byScore_);
+  const shortU = dedupe_(short), reviewU = dedupe_(review);
 
   write_(ss, SHORT_SHEET,
     ['Score', 'Name', 'Email', 'Place', 'SQL', 'Python', 'Tools',
-     'Scraping', 'CV?', 'CV link', 'Message', 'Decision'], short);
+     'Scraping', 'CV?', 'CV link', 'Message', 'Decision'], shortU);
   write_(ss, REVIEW_SHEET,
     ['Score', 'Name', 'Email', 'Place', 'SQL', 'Python', 'Tools',
-     'Scraping', 'CV?', 'CV link', 'Message', 'Decision'], review);
+     'Scraping', 'CV?', 'CV link', 'Message', 'Decision'], reviewU);
   write_(ss, OUT_SHEET,
     ['Name', 'Email', 'Place', 'Subject', 'Message', 'CV link'], out);
 
-  const withTools = short.filter(function (x) { return x[6]; }).length;
-  console.log('Shortlist ' + short.length + ' (منهم ' + withTools +
+  const withTools = shortU.filter(function (x) { return x[6]; }).length;
+  console.log('Shortlist ' + shortU.length + ' (منهم ' + withTools +
               ' ذكروا أداة scraping) · Review ' + review.length +
               ' · برّه مصر ' + out.length);
 }
@@ -247,4 +248,45 @@ function uniq_(arr) {
     if (!seen[k]) { seen[k] = true; out.push(x); }
   });
   return out;
+}
+
+
+/** نفس الشخص بيبعت مرتين — بنسيب الأعلى درجة. */
+function dedupe_(rows) {
+  const best = {}, order = [];
+  rows.forEach(function (r) {
+    const k = String(r[2] || "").toLowerCase();
+    if (!best[k]) { best[k] = r; order.push(k); }
+    else if (r[0] > best[k][0]) { best[k] = r; }
+  });
+  return order.map(function (k) { return best[k]; });
+}
+
+
+/**
+ * اكتب القايمة القصيرة كملف نصي في Drive.
+ *
+ * الشيت بيتقرا كعيّنة من برّه مهما كان حجمه — سبع صفوف وبس.
+ * الملف النصي بيتقرا كامل، فالمراجعة بتشوف الليستة كلها.
+ */
+function exportShortlist() {
+  const ss = logBook_();
+  const root = getFolder_(FOLDER);
+  [SHORT_SHEET, REVIEW_SHEET].forEach(function (which) {
+    const sh = ss.getSheetByName(which);
+    if (!sh) { return; }
+    const rows = sh.getDataRange().getValues();
+    const lines = [];
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      lines.push(r[0] + " | " + r[1] + " | " + r[2] + " | " + r[3] +
+        " | " + r[4] + " " + r[5] + " | " + (r[6] || "-") + " | " + r[7] +
+        " | " + (r[9] || "-") + " | " + String(r[10] || "").slice(0, 260));
+    }
+    const name = which + ".txt";
+    const old = root.getFilesByName(name);
+    while (old.hasNext()) { old.next().setTrashed(true); }
+    root.createFile(name, lines.join("\n"), MimeType.PLAIN_TEXT);
+    console.log(name + ": " + lines.length + " سطر");
+  });
 }
