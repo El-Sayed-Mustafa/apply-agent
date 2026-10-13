@@ -361,26 +361,50 @@ PRIORITY = {
 DEFAULT_PRIORITY = 4
 
 
+PAGE = 1000                                        # سقف PostgREST للنداء الواحد
+
+
+def _all(query) -> list[dict]:
+    """
+    كل صفوف الاستعلام، صفحة ورا صفحة.
+
+    PostgREST بيرجّع 1000 صف بحد أقصى — من غير خطأ ومن غير تحذير.
+    لما scores عدّى الألف، الزيادة بقت مش بتتشاف: 114 وظيفة متقيّمة
+    رجعت الطابور، وكل تشغيلة كانت بتعيد تقييمهم وتحرق الحصة عليهم.
+
+    `query` دالة بترجّع استعلام جديد كل مرة، ولازم يكون مترتّب —
+    من غير ترتيب ثابت الصفحات ممكن تتداخل.
+    """
+    out, off = [], 0
+    while True:
+        rows = query().range(off, off + PAGE - 1).execute().data
+        out += rows
+        if len(rows) < PAGE:
+            return out
+        off += PAGE
+
+
 def pending(db, limit: int) -> list[dict]:
     """
     الوظايف اللي بتعدّي السياسة ولسه متقيّمتش بالنسخة الحالية.
 
     Postgres مبيعملش anti-join مباشر من PostgREST، فبنجيب المُقيَّم
-    ونستبعده محليًا. عدد الصفوف صغير (مئات)، فده مقبول.
+    كله (بالصفحات — شوف `_all`) ونستبعده محليًا.
     """
     # التقييمات اللي اتعملت بموديل ضعيف مش بتتحسب كمنجَزة — بتتعاد
     # لما موديل كويس يبقى متاح.
-    rows = db.table("scores").select("job_id,model")         .eq("scorer_version", SCORER_VERSION).execute().data
+    rows = _all(lambda: db.table("scores").select("job_id,model")
+                .eq("scorer_version", SCORER_VERSION).order("job_id"))
     scored = {r["job_id"] for r in rows if r.get("model") not in WEAK_MODELS}
     weak = {r["job_id"] for r in rows if r.get("model") in WEAK_MODELS} - scored
     redo = len(weak)
     if redo:
         print(f"   ({redo} تقييم بموديل ضعيف — هيتعاد)")
 
-    burned = {r["job_id"] for r in
-              db.table("score_attempts").select("job_id")
-              .eq("scorer_version", SCORER_VERSION)
-              .gte("attempts", MAX_ATTEMPTS).execute().data}
+    burned = {r["job_id"] for r in _all(
+        lambda: db.table("score_attempts").select("job_id")
+        .eq("scorer_version", SCORER_VERSION)
+        .gte("attempts", MAX_ATTEMPTS).order("job_id"))}
 
     skip = scored | burned
     out, start = [], 0

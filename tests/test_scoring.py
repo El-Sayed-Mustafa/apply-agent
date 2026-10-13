@@ -254,3 +254,85 @@ def test_queue_sorted_by_priority(monkeypatch):
     ordered = sorted(rows, key=lambda r: (
         scoring.PRIORITY.get(r["ats"], scoring.DEFAULT_PRIORITY), -r["id"]))
     assert [r["ats"] for r in ordered] == ["remoteok", "greenhouse"]
+
+
+# ── سقف الألف صف ────────────────────────────────────────────────────────
+
+class _Q:
+    """استعلام مزيّف بيقلّد سقف PostgREST: 1000 صف في النداء، بصمت."""
+
+    CAP = 1000
+
+    def __init__(self, rows):
+        self.rows = list(rows)
+        self._range = None
+
+    def select(self, *_):
+        return self
+
+    def eq(self, col, val):
+        self.rows = [r for r in self.rows if r.get(col) == val]
+        return self
+
+    def gte(self, col, val):
+        self.rows = [r for r in self.rows if r.get(col, 0) >= val]
+        return self
+
+    def order(self, col, desc=False):
+        self.rows.sort(key=lambda r: r[col], reverse=desc)
+        return self
+
+    def range(self, a, b):
+        self._range = (a, b)
+        return self
+
+    def execute(self):
+        rows = self.rows
+        if self._range:
+            a, b = self._range
+            rows = rows[a:b + 1]
+        return type("R", (), {"data": rows[:self.CAP]})()
+
+
+class _DB:
+    def __init__(self, **tables):
+        self.tables = tables
+
+    def table(self, name):
+        return _Q(self.tables.get(name, []))
+
+
+def _job(i):
+    return {"id": i, "company_name": "X", "title": "AI Engineer",
+            "location": "", "remote_type": "remote", "description": "d"}
+
+
+def test_scored_jobs_past_row_1000_stay_out_of_the_queue(monkeypatch):
+    """
+    اتقاست: scores فيه 1114 صف، والنداء الواحد بيرجّع 1000. الـ114
+    الزيادة كانوا بيتعاد تقييمهم كل تشغيلة — 8 وظايف اتقيّموا 13:44
+    و7 منهم اتقيّموا تاني 13:51 — والحصة اليومية 40 طلب بس.
+    """
+    monkeypatch.setattr(scoring.targeting, "evaluate",
+                        lambda job: type("E", (), {"eligible": True})())
+    v = scoring.SCORER_VERSION
+    db = _DB(
+        jobs=[_job(i) for i in range(1, 1104)],
+        scores=[{"job_id": i, "model": "gemini-3.6-flash",
+                 "scorer_version": v} for i in range(1, 1101)],
+    )
+    got = [j["id"] for j in scoring.pending(db, 40)]
+    assert got == [1103, 1102, 1101]
+
+
+def test_burned_jobs_past_row_1000_stay_out_too(monkeypatch):
+    """نفس السقف على score_attempts: وظيفة فشلت 3 مرات متتجرّبش تاني."""
+    monkeypatch.setattr(scoring.targeting, "evaluate",
+                        lambda job: type("E", (), {"eligible": True})())
+    v = scoring.SCORER_VERSION
+    db = _DB(
+        jobs=[_job(i) for i in range(1, 1103)],
+        score_attempts=[{"job_id": i, "attempts": scoring.MAX_ATTEMPTS,
+                         "scorer_version": v} for i in range(1, 1101)],
+    )
+    assert [j["id"] for j in scoring.pending(db, 40)] == [1102, 1101]

@@ -43,8 +43,9 @@ def show_top(db, n: int = 25) -> None:
 
 
 def show_stats(db) -> None:
-    rows = db.table("scores").select("score_final,verdict,total_tokens") \
-        .eq("scorer_version", scoring.SCORER_VERSION).execute().data
+    rows = scoring._all(
+        lambda: db.table("scores").select("score_final,verdict,total_tokens")
+        .eq("scorer_version", scoring.SCORER_VERSION).order("job_id"))
     if not rows:
         print("مفيش تقييمات لسه.")
         return
