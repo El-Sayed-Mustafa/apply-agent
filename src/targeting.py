@@ -81,12 +81,73 @@ def classify_eligibility(text: str) -> tuple[str, str]:
     return "unknown", ""
 
 
+# أسماء بيكتبها الإعلان بدل اسم الدولة. "Dubai, UAE" و"Riyadh" و"Cairo"
+# لوحدهم كانوا بيطلعوا "دولة برّه القايمة" ويترفضوا، مع إنهم قلب
+# المستوى الأول. المفتاح لازم يطابق اسم دولة في targeting.yaml.
+ALIASES = {
+    "united arab emirates": ["uae", "u.a.e", "emirates", "dubai", "abu dhabi",
+                             "sharjah", "ajman", "ras al khaimah", "al ain",
+                             "الإمارات", "الامارات", "دبي", "أبوظبي", "ابوظبي",
+                             "الشارقة"],
+    "saudi arabia": ["ksa", "saudi", "riyadh", "jeddah", "jedda", "dammam",
+                     "khobar", "dhahran", "makkah", "mecca", "madinah",
+                     "medina", "neom", "jubail", "tabuk", "السعودية",
+                     "الرياض", "جدة", "الدمام", "الخبر"],
+    "egypt": ["cairo", "giza", "alexandria", "new cairo", "6th of october",
+              "smart village", "mansoura", "مصر", "القاهرة", "الجيزة",
+              "الإسكندرية", "الاسكندرية"],
+    "qatar": ["doha", "قطر", "الدوحة"],
+    "kuwait": ["الكويت"],
+    "bahrain": ["manama", "البحرين", "المنامة"],
+    "oman": ["muscat", "مسقط", "سلطنة عمان"],
+    "germany": ["berlin", "munich", "münchen", "hamburg", "frankfurt",
+                "cologne", "stuttgart", "deutschland"],
+    "netherlands": ["amsterdam", "rotterdam", "utrecht", "eindhoven",
+                    "the hague"],
+    "ireland": ["dublin", "cork"],
+    "portugal": ["lisbon", "porto"],
+    "spain": ["madrid", "barcelona", "valencia"],
+    "poland": ["warsaw", "krakow", "kraków", "wroclaw", "wrocław", "gdansk"],
+    "czechia": ["czech republic", "prague", "brno"],
+    "estonia": ["tallinn", "tartu"],
+    "canada": ["toronto", "vancouver", "montreal", "ottawa", "calgary"],
+    "united kingdom": ["uk", "england", "scotland", "london", "manchester",
+                       "edinburgh", "cambridge, uk"],
+    "japan": ["tokyo", "osaka"],
+    "australia": ["sydney", "melbourne", "brisbane", "perth"],
+    "new zealand": ["auckland", "wellington"],
+    "united states": ["usa", "u.s."],
+}
+
+
+def _word(name: str) -> re.Pattern:
+    """
+    الاسم ككلمة كاملة مش جزء من كلمة.
+
+    بالمقارنة الجزئية "oman" كانت بتلاقي نفسها جوّا "Romania" — يعني
+    وظيفة حضوري في رومانيا كانت بتتحسب عُمان، مستوى أول.
+    """
+    return re.compile(r"(?<!\w)" + re.escape(name) + r"(?!\w)")
+
+
+@lru_cache(maxsize=1)
+def _matchers() -> list[tuple[re.Pattern, str, int]]:
+    """(النمط، اسم الدولة، المستوى) — الأسامي الرسمية الأول، الأطول الأول."""
+    tiers = dict(_countries())
+    out = [(_word(n), n, t) for n, t in _countries()]
+    alias = [(a.lower(), n) for n, names in ALIASES.items() if n in tiers
+             for a in names]
+    out += [(_word(a), n, tiers[n]) for a, n in
+            sorted(alias, key=lambda x: -len(x[0]))]
+    return out
+
+
 def detect_country(location: str | None) -> tuple[str | None, int | None]:
     loc = (location or "").lower()
     if not loc:
         return None, None
-    for name, tier in _countries():
-        if name in loc:
+    for pat, name, tier in _matchers():
+        if pat.search(loc):
             return name.title(), tier
     return None, None
 
@@ -179,3 +240,20 @@ def evaluate(job) -> Verdict:
     if tier == 4:
         return out(False, f"{country} — حضوري صعب، ريموت بس")
     return out(True, f"{country} · المستوى {tier}")
+
+def could_pass(title: str, location: str | None, remote_type: str | None) -> bool:
+    """
+    الشرط اللازم من غير وصف: الدور مناسب، وريموت أو دولة في القايمة
+    (مش المستوى 4).
+
+    الوصف في `evaluate` بيرفض بس (أقدمية، محلي فقط) — مبيقبلش حاجة
+    العنوان والمكان رفضوها. فاللي بيقع هنا كان هيقع هناك برضه، والفرق
+    إننا ما فتحناش صفحته ولا نزّلنا وصفه.
+    """
+    if not matches_role(title or ""):
+        return False
+    if (remote_type or "") == "remote":
+        return True
+    _, tier = detect_country(location)
+    return tier is not None and tier != 4
+

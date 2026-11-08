@@ -244,3 +244,52 @@ def test_senior_job_rejected_end_to_end():
     v = targeting.evaluate(job(title="AI Engineer",
                                desc="We need 8+ years of experience."))
     assert not v.eligible and "8 سنين" in v.reason
+
+
+# ── المدن والاختصارات ───────────────────────────────────────────────────
+
+@pytest.mark.parametrize("loc,country", [
+    ("Dubai, UAE", "United Arab Emirates"),
+    ("Dubai", "United Arab Emirates"),
+    ("Abu Dhabi", "United Arab Emirates"),
+    ("Riyadh", "Saudi Arabia"),
+    ("Jeddah, KSA", "Saudi Arabia"),
+    ("Cairo", "Egypt"),
+    ("Doha", "Qatar"),
+    ("Manama", "Bahrain"),
+    ("Muscat", "Oman"),
+    ("الرياض", "Saudi Arabia"),
+])
+def test_gulf_cities_count_as_their_country(loc, country):
+    """
+    "Dubai, UAE" و"Riyadh" و"Cairo" لوحدهم كانوا بيطلعوا "دولة برّه
+    القايمة" ويترفضوا — وهما قلب المستوى الأول.
+    """
+    assert targeting.detect_country(loc) == (country, 1)
+
+
+@pytest.mark.parametrize("loc", ["Bucharest, Romania", "Kyiv, Ukraine",
+                                 "Indianapolis, Indiana"])
+def test_country_name_inside_another_word_does_not_count(loc):
+    """'oman' جوّا 'Romania' كانت بتخلي رومانيا عُمان — مستوى أول."""
+    assert targeting.detect_country(loc) == (None, None)
+
+
+def test_could_pass_is_never_stricter_than_evaluate():
+    """
+    الفلتر المبدئي بيقرر مين ننزّل وصفه أو نفتح صفحته. لو رفض حاجة
+    `evaluate` كان هيقبلها، يبقى بنضيّع وظايف مناسبة من غير ما نعرف.
+    """
+    cases = [
+        ("AI Engineer", "Riyadh", "onsite"),
+        ("AI Engineer", "Bucharest, Romania", "remote"),
+        ("AI Engineer", "New York, United States", "onsite"),
+        ("AI Engineer", "", "unknown"),
+        ("Sales Manager", "Dubai", "onsite"),
+        ("Machine Learning Engineer", "Berlin", "hybrid"),
+    ]
+    for title, loc, remote in cases:
+        job = type("J", (), {"title": title, "location": loc,
+                             "remote_type": remote, "description": ""})()
+        if targeting.evaluate(job).eligible:
+            assert targeting.could_pass(title, loc, remote), (title, loc)

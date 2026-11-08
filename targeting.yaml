@@ -104,6 +104,19 @@ roles:
     - "solutions?\\s+(?:engineer|architect)"
     - "forward\\s+deployed"
     - "integration\\s+engineer"
+    # كانت ناقصة: "Artificial Intelligence Engineer" و"MLOps" و"n8n" و"Workflow
+    # Automation" مكانوش بيتطابقوا — وأولهم اترفض في بحث حقيقي على الإمارات.
+    - "artificial\\s+intelligence"
+    - "generative"
+    - "\\bgen\\s?ai\\b"
+    - "\\bnlp\\b"
+    - "computer\\s+vision"
+    - "deep\\s+learning"
+    - "\\bmlops\\b"
+    - "\\bn8n\\b"
+    - "(?:workflow|process|business)\\s+automation"
+    - "automation\\s+(?:developer|specialist)"
+    - "prompt\\s+engineer"
 
   # مهما كان الباقي، دي مش وظايفك
   exclude:
@@ -200,3 +213,7 @@ job_board:
     - "Egypt"
     - "Qatar"
     - "Kuwait"
+    # البحرين وعُمان في المستوى الأول فوق، بس كانوا ناقصين هنا — يعني
+    # عمرهم ما اتدوّر عليهم في اللوحة.
+    - "Bahrain"
+    - "Oman"
