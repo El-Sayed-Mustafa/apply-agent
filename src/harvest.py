@@ -39,11 +39,11 @@ import yaml
 from dotenv import load_dotenv
 from google.genai import types
 
-from . import genai_pool, targeting
+from . import genai_pool, runlog, targeting
 from .adapters import Job
 from .linkedin import session
 from .linkedin.session import Blocked
-from .main import get_client, save
+from .main import get_client, reachable, save
 from .scoring import (API_RETRIES, MODELS, _is_daily_quota,
                       _retry_delay)
 
@@ -374,6 +374,10 @@ def run(dry: bool = False, limit: int = MAX_POSTS) -> dict:
         return {"error": f"مفيش post_search.queries في {CFG}"}
 
     print(f"🔎 {len(queries)} بحث\n")
+    down = reachable()
+    if down:
+        return {"error": f"{down} — ما فتحناش لينكدإن"}
+
     with session.browser(headless=False) as page:
         if not session.logged_in(page):
             return {"error": "مفيش جلسة LinkedIn"}
@@ -432,7 +436,10 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=MAX_POSTS)
     a = ap.parse_args()
 
+    started = datetime.now(timezone.utc)
     r = run(dry=a.dry_run, limit=a.limit)
+    if not a.dry_run:
+        runlog.log("harvest", started, r, r.get("posts"), r.get("saved"))
     if r.get("error"):
         print(f"❌ {r['error']}")
         return 1

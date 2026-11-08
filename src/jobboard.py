@@ -28,32 +28,43 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
 
-from . import targeting
+from . import runlog, targeting
 from .adapters import Job
 from .linkedin import session
 from .linkedin.session import Blocked
-from .main import get_client, save
+from .main import get_client, reachable, save
 
 load_dotenv()
 
 CFG = "targeting.yaml"
 BASE = "https://www.linkedin.com"
 
-# كام وظيفة من كل (كلمة × مكان). العدد صغير عن قصد: كل وصف
-# بيتطلب فتح صفحة، والوتيرة البطيئة هي اللي بتخلي ده آمن.
-PER_SEARCH = 6
+# كام كارت نقرا من كل (كلمة × مكان). قراءة الكروت مبتفتحش أي صفحة —
+# الكروت كلها في صفحة البحث نفسها — فالعدد هنا مش هو اللي بيكلّف
+# الحساب؛ اللي بيكلّف هو فتح صفحات الوصف، وده محكوم بـ MAX_DESCRIBE.
+#
+# كان 6، وده كان أكبر سبب إن وظايف مناسبة مبتوصلش: "AI Engineer" في
+# السعودية في أسبوع = 34 نتيجة، وإحنا كنا بناخد أول 6.
+# 25 = الصفحة الأولى كاملة.
+PER_SEARCH = 25
 
 # سقف الأوصاف في التشغيلة الواحدة. فتح صفحة وصف هو أغلى فعل
-# وأكتره لفتًا للنظر — 25 بحث × 6 كارت ممكن يبقى 150 صفحة، وده
-# مش سلوك بني آدم. الباقي بيستنى التشغيلة الجاية؛ الكروت
-# المتسجّلة بتتعدّى فالتقدّم بيتراكم.
+# وأكتره لفتًا للنظر — مش بنزوّده. الزيادة بتستنى في الطابور.
 MAX_DESCRIBE = 12
+
+# الكروت المناسبة اللي ملحقناش نفتح وصفها. من غير الطابور كانت
+# بتضيع: بكرة شريحة أبحاث تانية، والبحث ده مبيرجعش غير بعد كام يوم
+# وساعتها تكون نزلت من أول الصفحة. بتتشال بعد أسبوع (نفس مدى البحث).
+QUEUE = Path("state/jobboard_queue.json")
+QUEUE_DAYS = 7
 
 # كام بحث في التشغيلة الواحدة. 5 كلمات × 5 أماكن = 25 بحث كل
 # يوم، وده لوحده — قبل الأوصاف — نشاط أكبر من أي بني آدم.
@@ -90,6 +101,18 @@ JS_CARDS = r"""() => {
 JS_DESC = r"""() => {
   const m = document.querySelector('main');
   return m ? (m.innerText || '').trim() : '';
+}"""
+
+# لينكدإن بيرسم الكروت اللي قدام العين بس — الباقي بيبقى غلاف فاضي
+# لحد ما يتشاف. فبنعدّي على كل كارت عشان يترسم قبل ما نقراه.
+# دي تمريرة في صفحة مفتوحة، مش فتح صفحات.
+JS_RENDER = r"""async () => {
+  const els = [...document.querySelectorAll('[data-occludable-job-id]')];
+  for (const e of els) {
+    e.scrollIntoView({block: 'center'});
+    await new Promise(r => setTimeout(r, 250 + Math.random() * 350));
+  }
+  return els.length;
 }"""
 
 # سطور بتتكرر في كل كارت ومالهاش معنى
@@ -197,25 +220,67 @@ def search(page, keyword: str, location: str, want: int = PER_SEARCH) -> list[di
     session.human_pause(6, 10)
     session.guard(page)
 
-    out = []
-    for _ in range(2):
-        try:
-            cards = page.evaluate(JS_CARDS)
-        except Exception as exc:
-            print(f"   ⚠ تعذّرت قراءة الكروت: {exc}")
-            cards = []
-
-        for c in cards:
-            p = parse_card(c)
-            if p and not any(x["id"] == p["id"] for x in out):
-                out.append(p)
-        if len(out) >= want:
-            break
-        page.mouse.wheel(0, 1400)
-        session.human_pause(3, 5)
+    try:
+        page.evaluate(JS_RENDER)
+        session.human_pause(1.5, 3)
         session.guard(page)
+        cards = page.evaluate(JS_CARDS)
+    except Blocked:
+        raise
+    except Exception as exc:
+        print(f"   ⚠ تعذّرت قراءة الكروت: {exc}")
+        cards = []
 
+    out = []
+    for c in cards:
+        p = parse_card(c)
+        if p and not any(x["id"] == p["id"] for x in out):
+            out.append(p)
     return out[:want]
+
+
+def priority(card: dict) -> int:
+    """الأقرب للهدف الأول: ريموت والمستوى الأول، وبعدين 2 و3."""
+    if card.get("remote_type") == "remote":
+        return 0
+    _, tier = targeting.detect_country(card.get("location"))
+    return {1: 0, 2: 1, 3: 2}.get(tier, 3)
+
+
+def load_queue() -> dict[str, dict]:
+    """الطابور من غير اللي عدّى عليه أسبوع."""
+    try:
+        q = json.loads(QUEUE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    cutoff = datetime.now(timezone.utc).timestamp() - QUEUE_DAYS * 86400
+    return {k: v for k, v in q.items()
+            if datetime.fromisoformat(v["queued_at"]).timestamp() >= cutoff}
+
+
+def save_queue(q: dict[str, dict]) -> None:
+    QUEUE.parent.mkdir(parents=True, exist_ok=True)
+    QUEUE.write_text(json.dumps(q, ensure_ascii=False, indent=1),
+                     encoding="utf-8")
+
+
+def pick(cards: dict[str, dict], queue: dict[str, dict], known: set[str],
+         limit: int = MAX_DESCRIBE) -> tuple[list[dict], dict[str, dict]]:
+    """
+    أنهي كروت نفتح وصفها النهاردة، وإيه اللي يفضل في الطابور.
+
+    الطابور والجديد في كومة واحدة، مترتبين بالأولوية — وجوّا نفس
+    الأولوية الأقدم في الطابور الأول، عشان محدش يستنى للأبد.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    pool = {k: v for k, v in queue.items() if k not in known}
+    for k, c in cards.items():
+        if k not in known and k not in pool:
+            pool[k] = {**c, "queued_at": now}
+    order = sorted(pool.values(), key=lambda c: (priority(c), c["queued_at"]))
+    todo = order[:limit]
+    rest = {c["id"]: c for c in order[limit:]}
+    return todo, rest
 
 
 def describe(page, card: dict) -> str:
@@ -264,6 +329,10 @@ def run(dry: bool = False, per_search: int = PER_SEARCH) -> dict:
 
     print(f"🔎 {len(pairs)} بحث من {total} (شريحة النهاردة)\n")
 
+    down = reachable()
+    if down:
+        return {"error": f"{down} — ما فتحناش لينكدإن"}
+
     cards: dict[str, dict] = {}
     jobs: list[Job] = []
 
@@ -280,30 +349,33 @@ def run(dry: bool = False, per_search: int = PER_SEARCH) -> dict:
                 print(f"   {loc:<16}{kw[:26]:<28}{len(got):>3} كارت"
                       f" · {len(fresh)} جديد")
 
-            # الفلترة على العنوان **قبل** فتح أي صفحة وصف.
+            # الفلترة **قبل** فتح أي صفحة وصف: الدور، وريموت أو دولة في
+            # القايمة. نفس الشرط اللازم اللي المقيّم بيطبّقه بعدين — فاللي
+            # بيقع هنا كان هيترفض برضه، بس بعد ما فتحنا صفحته على الحساب.
             #
             # بحث لينكدإن فضفاض: "AI Engineer" في السعودية بيرجّع
             # "Junior Game Designer" و"German speaking Customer
             # support". اتقاس: 73% من اللي دخل مش مطابق للدور.
-            #
-            # وكل واحدة من دول كانت بتفتح صفحة على الحساب من غير
-            # فايدة. فده مش تنضيف بيانات — ده تقليل نشاط.
             off = [c for c in cards.values()
-                   if not targeting.matches_role(c["title"])]
+                   if not targeting.could_pass(c["title"], c["location"],
+                                               c["remote_type"])]
             for c in off:
                 del cards[c["id"]]
             if off:
-                print(f"\n   ({len(off)} برّه تخصصك — مافتحناش صفحاتهم)")
+                print(f"\n   ({len(off)} برّه تخصصك أو مكانك — مافتحناش صفحاتهم)")
 
             known = seen_ids(get_client())
-            todo = [c for c in cards.values() if c["id"] not in known]
-            skipped = len(cards) - len(todo)
-            if len(todo) > MAX_DESCRIBE:
-                print(f"   ({len(todo)} جديدة — هناخد {MAX_DESCRIBE} "
-                      f"والباقي التشغيلة الجاية)")
-                todo = todo[:MAX_DESCRIBE]
+            queue = load_queue()
+            todo, rest = pick(cards, queue, known)
+            skipped = sum(1 for k in cards if k in known)
             if skipped:
                 print(f"   ({skipped} متسجّلة قبل كده — بنعدّيها)")
+            if rest:
+                print(f"   ({len(rest)} مستنية في الطابور للتشغيلة الجاية)")
+            # اللي هنفتحه النهاردة بيفضل في الطابور لحد ما يتحفظ فعلًا —
+            # لو التشغيلة وقعت في النص، مايضيعش.
+            if not dry:
+                save_queue({**rest, **{c["id"]: c for c in todo}})
             print(f"\n📄 {len(todo)} وظيفة — بنقرا الأوصاف\n")
 
             for c in todo:
@@ -315,8 +387,10 @@ def run(dry: bool = False, per_search: int = PER_SEARCH) -> dict:
             return {"error": f"اعتراض: {b}"}
 
     saved = []
-    if jobs and not dry:
-        saved = save(get_client(), jobs)
+    if not dry:
+        if jobs:
+            saved = save(get_client(), jobs)
+        save_queue(rest)
 
     print(f"\n📊 {len(cards)} كارت · {len(jobs)} اتقرا · {len(saved)} جديدة")
     if dry:
@@ -347,7 +421,10 @@ def main() -> int:
     ap.add_argument("--per-search", type=int, default=PER_SEARCH)
     a = ap.parse_args()
 
+    started = datetime.now(timezone.utc)
     r = run(dry=a.dry_run, per_search=a.per_search)
+    if not a.dry_run:
+        runlog.log("jobboard", started, r, r.get("cards"), r.get("saved"))
     if r.get("error"):
         print(f"❌ {r['error']}")
         return 1

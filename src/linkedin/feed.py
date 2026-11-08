@@ -44,29 +44,69 @@ MAX_PER_AUTHOR = 1
 # الأصلي — مش للشخص اللي احنا مهتمين بيه.
 REPOST = re.compile(r"reposted this|أعاد نشر|شارك هذا", re.I)
 
-# الكلاسات في لينكدإن اتشفّرت (aa13b50b…)، فمابقاش ينفع نمسك
-# feed-shared-update-v2. الحاجة الوحيدة اللي فضلت ثابتة هي الـ urn.
+# لينكدإن غيّر صفحة النشاط (أكتوبر 2026): `data-urn` اختفى خالص،
+# والمنشور بقى `role=listitem` بـ componentkey بيبدأ بـ update-card.
+# قِسناها: صفحة فيها 10 منشورات ظاهرة، و`data-urn` = 0 — يعني القارئ
+# القديم كان بيرجّع صفر كل يوم من 6 أكتوبر ومحدش بيعرف.
+#
+# الـ urn بتاع المنشور نفسه مش موجود في الشكل الجديد. اللي موجود هو
+# لينك `/feed/update/urn:...` جوّا بعض المنشورات — وساعات ده لينك
+# المنشور اللي اتشارك جوّاه مش المنشور نفسه. فبناخد المنشور بس لما
+# يكون فيه لينك واحد وكاتب واحد. أي حاجة تانية ممكن الكومنت يروح
+# لشخص غير اللي فاكرينه — والكومنت عام ودايم.
 JS_POSTS = r"""() => {
   const out = [];
   const seen = new Set();
-  document.querySelectorAll('[data-urn], [data-id]').forEach(p => {
-    const urn = p.getAttribute('data-urn') || p.getAttribute('data-id') || '';
-    if (!/^urn:li:(activity|ugcPost|share)/.test(urn)) return;
-    if (seen.has(urn)) return;
+  const AGE = /^(\d+)\s*(s|m|h|d|w|mo|yr)\b/;
+  const UNIT = {s: 0, m: 0, h: 0, d: 1, w: 7, mo: 30, yr: 365};
+  const ageOf = (text) => {
+    for (const line of text.split('\n').slice(0, 12)) {
+      const m = line.trim().match(AGE);
+      if (m) return Number(m[1]) * UNIT[m[2]];
+    }
+    return null;
+  };
+  const push = (p, urn) => {
+    if (!urn || seen.has(urn)) return;
     const text = (p.innerText || '').trim();
     if (!text || text.length < 60 || text.length > 3000) return;
     seen.add(urn);
     const a = p.querySelector('a[href*="/in/"]');
-    const author = a ? (a.innerText || '').trim().split('\n')[0] : '';
     out.push({
       urn: urn,
-      author: author.slice(0, 80),
+      author: a ? (a.innerText || '').trim().split('\n')[0].slice(0, 80) : '',
       author_url: a ? (a.getAttribute('href') || '').split('?')[0] : '',
+      age_days: ageOf(text),
       text: text.slice(0, 1600)
     });
+  };
+  document.querySelectorAll('[data-urn], [data-id]').forEach(p => {
+    const urn = p.getAttribute('data-urn') || p.getAttribute('data-id') || '';
+    if (/^urn:li:(activity|ugcPost|share)/.test(urn)) push(p, urn);
+  });
+  document.querySelectorAll('[role="listitem"][componentkey^="update-card"]').forEach(p => {
+    const urns = new Set();
+    p.querySelectorAll('a[href*="/feed/update/urn:li:"]').forEach(a => {
+      const m = (a.getAttribute('href') || '').match(/urn:li:(activity|ugcPost|share):\d+/);
+      if (m) urns.add(m[0]);
+    });
+    const actors = new Set();
+    p.querySelectorAll('a[href*="/in/"]').forEach(a => {
+      const h = (a.getAttribute('href') || '').split('?')[0];
+      if (!/recent-activity/.test(h)) actors.add(h.replace(/\/+$/, '').split('/in/')[1]);
+    });
+    if (urns.size === 1 && actors.size === 1) push(p, [...urns][0]);
   });
   return out.slice(0, 40);
 }"""
+
+# كام منشور ظاهر في الصفحة أصلًا، بأي شكل. لو ده فوق الصفر والمقبول
+# صفر، يبقى القارئ مش فاهم الصفحة — ودي لازم تتقال مش تتبلع.
+JS_VISIBLE = r"""() => document.querySelectorAll(
+  '[role="listitem"][componentkey^="update-card"], [data-urn^="urn:li:activity"]').length"""
+
+# منشور أقدم من كده مش هنعلّق عليه: كومنت على منشور عمره سنة شكله آلي.
+MAX_AGE_DAYS = 7
 
 
 def post_key(urn: str, text: str) -> str:
@@ -147,16 +187,23 @@ def collect(page, want: int = 25, people: list[str] | None = None) -> list[dict]
         for _ in range(2):
             try:
                 posts = page.evaluate(JS_POSTS)
+                visible = page.evaluate(JS_VISIBLE)
             except Exception as e:
                 # الابتلاع الصامت هنا كان بيدّي "0 منشور" على غلط
                 # صياغة في الـJS. أي فشل هنا لازم يتقال.
                 print(f"   ⚠ تعذّرت قراءة الصفحة: {e}")
-                posts = []
+                posts, visible = [], 0
+            if visible and not posts:
+                print(f"   · {owner or url}: {visible} منشور ظاهر، "
+                      f"ولا واحد ينفع (من غير لينك واضح أو مشاركة لحد تاني)")
 
             taken = 0
             for p in posts:
                 if taken >= MAX_PER_AUTHOR:
                     break
+                age = p.get("age_days")
+                if age is not None and age > MAX_AGE_DAYS:
+                    continue
                 text = clean_text(p["text"])
                 kind = classify(text)
                 if not kind:

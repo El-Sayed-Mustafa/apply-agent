@@ -33,6 +33,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from . import runlog
 from .linkedin import session
 from .linkedin.session import BASE, Blocked
 from .main import get_client
@@ -234,7 +235,12 @@ def _follow_here(page) -> tuple[bool, str]:
         if ALREADY.search(label.strip()):
             return False, "متابع بالفعل"
 
-        btn.click()
+        # زرار ظاهر بس برّه الشاشة (حصل مع Prenosis) بيوقّع
+        # التشغيلة كلها بعد 30 ثانية. نعدّي الشركة دي بس.
+        try:
+            btn.click(timeout=10_000)
+        except Exception:
+            return False, "زرار المتابعة مش قابل للضغط"
         session.human_pause(2, 4)
         session.guard(page)
         return True, ""
@@ -404,7 +410,10 @@ def main() -> int:
         show_stats()
         return 0
 
+    started = datetime.now(timezone.utc)
     r = run(send=a.send)
+    if a.send:
+        runlog.log("engage", started, r, r.get("planned"), r.get("sent"))
     if r.get("error"):
         print(f"❌ {r['error']}")
         return 1

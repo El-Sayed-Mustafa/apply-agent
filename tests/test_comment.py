@@ -237,3 +237,30 @@ def test_one_comment_per_author_per_run():
     حتى لو كل واحد لوحده كويس.
     """
     assert feed.MAX_PER_AUTHOR == 1
+
+
+# ── صفحة النشاط بالشكل الجديد (أكتوبر 2026) ────────────────────────────
+
+def test_new_activity_layout_is_read_and_ambiguous_posts_are_refused():
+    """
+    `data-urn` اختفى من صفحة النشاط، والقارئ القديم رجّع صفر كل يوم
+    من 6 أكتوبر. الشكل الجديد بيتقري — بس المنشور اللي فيه مشاركة
+    لكاتب تاني أو مالوش لينك بيترفض، عشان الكومنت ميروحش لحد غلط.
+    """
+    from pathlib import Path
+    sync = pytest.importorskip("playwright.sync_api")
+    from src.linkedin.feed import JS_POSTS, JS_VISIBLE
+    html = (Path(__file__).parent / "fixtures" / "activity_2026_10.html"
+            ).read_text(encoding="utf-8")
+    try:
+        with sync.sync_playwright() as pw:
+            b = pw.chromium.launch(headless=True)
+            pg = b.new_page()
+            pg.set_content(html)
+            posts, visible = pg.evaluate(JS_POSTS), pg.evaluate(JS_VISIBLE)
+            b.close()
+    except Exception as exc:                      # مفيش Chromium متسطّب
+        pytest.skip(f"chromium: {exc}")
+    assert visible == 3
+    assert [p["urn"] for p in posts] == ["urn:li:activity:7000000000000000001"]
+    assert posts[0]["age_days"] == 2

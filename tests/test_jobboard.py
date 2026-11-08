@@ -183,6 +183,77 @@ def test_off_target_titles_never_open_a_page():
     """
     import inspect
     src = inspect.getsource(jobboard.run)
-    i_filter = src.index("matches_role")
+    i_filter = src.index("could_pass")
     i_open = src.index("describe(page")
     assert i_filter < i_open, "الفلترة لازم تسبق فتح الصفحات"
+
+
+# ── الطابور والأولوية ───────────────────────────────────────────────────
+
+def _card(i, loc="Riyadh, Saudi Arabia", remote="onsite",
+          queued="2026-10-20T00:00:00+00:00"):
+    return {"id": str(i), "title": "AI Engineer", "company": "X",
+            "location": loc, "remote_type": remote,
+            "url": f"https://www.linkedin.com/jobs/view/{i}/",
+            "queued_at": queued}
+
+
+def test_reads_the_whole_first_page_not_six():
+    """
+    "AI Engineer" في السعودية في أسبوع = 34 نتيجة، وكنا بناخد أول 6.
+    قراءة الكروت مبتفتحش صفحات — اللي بيكلّف الحساب هو MAX_DESCRIBE.
+    """
+    assert jobboard.PER_SEARCH >= 25
+    assert jobboard.MAX_DESCRIBE <= 12
+
+
+def test_cards_beyond_the_ceiling_wait_instead_of_vanishing():
+    cards = {str(i): _card(i) for i in range(20)}
+    todo, rest = jobboard.pick(cards, {}, known=set(), limit=12)
+    assert len(todo) == 12
+    assert len(rest) == 8
+
+
+def test_gulf_and_remote_come_before_tier_three():
+    cards = {"1": _card(1, "London, United Kingdom"),
+             "2": _card(2, "Dubai, UAE"),
+             "3": _card(3, "EMEA", remote="remote")}
+    todo, _ = jobboard.pick(cards, {}, known=set(), limit=2)
+    assert {c["id"] for c in todo} == {"2", "3"}
+
+
+def test_queued_cards_go_first_within_the_same_priority():
+    queue = {"9": _card(9, queued="2026-10-18T00:00:00+00:00")}
+    cards = {"1": _card(1)}
+    todo, rest = jobboard.pick(cards, queue, known=set(), limit=1)
+    assert todo[0]["id"] == "9"
+    assert list(rest) == ["1"]
+
+
+def test_queued_card_saved_meanwhile_is_dropped():
+    queue = {"9": _card(9)}
+    todo, rest = jobboard.pick({}, queue, known={"9"}, limit=12)
+    assert todo == [] and rest == {}
+
+
+def test_queue_forgets_cards_older_than_a_week(tmp_path, monkeypatch):
+    import json
+    from datetime import datetime, timedelta, timezone
+    p = tmp_path / "q.json"
+    old = (datetime.now(timezone.utc) - timedelta(days=8)).isoformat()
+    new = datetime.now(timezone.utc).isoformat()
+    p.write_text(json.dumps({"1": _card(1, queued=old),
+                             "2": _card(2, queued=new)}), encoding="utf-8")
+    monkeypatch.setattr(jobboard, "QUEUE", p)
+    assert list(jobboard.load_queue()) == ["2"]
+
+
+def test_missing_queue_file_is_an_empty_queue(tmp_path, monkeypatch):
+    monkeypatch.setattr(jobboard, "QUEUE", tmp_path / "nope.json")
+    assert jobboard.load_queue() == {}
+
+
+def test_bahrain_and_oman_are_searched():
+    """في المستوى الأول من الأول، بس عمرهم ما اتدوّر عليهم في اللوحة."""
+    _, locations = jobboard.config()
+    assert "Bahrain" in locations and "Oman" in locations
