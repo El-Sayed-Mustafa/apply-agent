@@ -278,6 +278,11 @@ class _Q:
         self.rows = [r for r in self.rows if r.get(col, 0) >= val]
         return self
 
+    def in_(self, col, vals):
+        vals = set(vals)
+        self.rows = [r for r in self.rows if r.get(col) in vals]
+        return self
+
     def order(self, col, desc=False):
         self.rows.sort(key=lambda r: r[col], reverse=desc)
         return self
@@ -336,3 +341,38 @@ def test_burned_jobs_past_row_1000_stay_out_too(monkeypatch):
                          "scorer_version": v} for i in range(1, 1101)],
     )
     assert [j["id"] for j in scoring.pending(db, 40)] == [1102, 1101]
+
+
+def test_descriptions_fetched_only_for_jobs_that_could_pass():
+    """
+    الأوصاف هي الحجم كله في نقل البيانات، وSupabase وقف المشروع يوم
+    23 أكتوبر على exceed_egress_quota. الوظيفة اللي عنوانها أو مكانها
+    بيرفضها مالهاش لازمة ننزّل وصفها.
+    """
+    jobs = [
+        {"id": 3, "company_name": "A", "title": "AI Engineer",
+         "location": "Riyadh", "remote_type": "onsite", "description": "d"},
+        {"id": 2, "company_name": "B", "title": "Sales Manager",
+         "location": "Riyadh", "remote_type": "onsite", "description": "d"},
+        {"id": 1, "company_name": "C", "title": "AI Engineer",
+         "location": "Bucharest, Romania", "remote_type": "onsite",
+         "description": "d"},
+    ]
+    asked = []
+
+    class DB(_DB):
+        def table(self, name):
+            q = super().table(name)
+            if name == "jobs":
+                real = q.in_
+
+                def spy(col, vals):
+                    asked.extend(vals)
+                    return real(col, vals)
+                q.in_ = spy
+            return q
+
+    got = scoring.pending(DB(jobs=jobs, scores=[]), 40)
+    assert [j["id"] for j in got] == [3]
+    assert asked == [3]                      # وصف واحد بس اتنزّل
+    assert got[0]["description"] == "d"

@@ -410,22 +410,39 @@ def pending(db, limit: int) -> list[dict]:
     out, start = [], 0
 
     while len(out) < limit:
-        rows = db.table("jobs") \
-            .select("id,company_name,title,location,remote_type,description") \
-            .order("id", desc=True).range(start, start + 499).execute().data
+        # على مرحلتين عشان نقل البيانات: الأوصاف هي الحجم كله، وأغلب
+        # الوظايف بتترفض من العنوان أو المكان. فالصفحة بتيجي من غير
+        # وصف، والوصف بيتجاب بس للي عدّى الشرط اللازم.
+        rows = (db.table("jobs")
+                .select("id,company_name,title,location,remote_type")
+                .order("id", desc=True).range(start, start + 499)
+                .execute().data)
         if not rows:
             break
         start += 500
 
+        maybe = [r["id"] for r in rows
+                 if r["id"] not in skip and _could_pass(r)]
+        if not maybe:
+            continue
+        desc = {d["id"]: d.get("description") or "" for d in
+                db.table("jobs").select("id,description")
+                .in_("id", maybe).execute().data}
+
         for r in rows:
-            if r["id"] in skip:
+            if r["id"] not in desc:
                 continue
-            job = _as_job(r)
-            if targeting.evaluate(job).eligible:
+            r = {**r, "description": desc[r["id"]]}
+            if targeting.evaluate(_as_job(r)).eligible:
                 out.append(r)
                 if len(out) >= limit:
                     break
     return out
+
+
+def _could_pass(row: dict) -> bool:
+    return targeting.could_pass(row.get("title"), row.get("location"),
+                                row.get("remote_type"))
 
 
 class _J:

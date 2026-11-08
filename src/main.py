@@ -56,6 +56,24 @@ def get_client():
     return create_client(url, key)
 
 
+def reachable() -> str:
+    """
+    الداتابيز بترد؟ رجّع "" لو آه، أو السبب لو لأ.
+
+    الخطوات اللي بتفتح لينكدإن بتنده دي **قبل** المتصفح. يوم ما
+    Supabase اتقيّد، لوحة الوظايف كانت هتعمل 8 أبحاث وتفتح 12 صفحة
+    على الحساب، وبعدين تقع عند الحفظ. نشاط على الحساب على الفاضي.
+    """
+    try:
+        get_client().table("jobs").select("id").limit(1).execute()
+        return ""
+    except (Exception, SystemExit) as exc:
+        msg = str(exc)
+        if "egress" in msg:
+            return "Supabase متقيّد — حصة نقل البيانات خلصت (exceed_egress_quota)"
+        return f"الداتابيز مش بترد: {msg[:150]}"
+
+
 def existing_hashes(client, hashes: list[str]) -> set[str]:
     """رجّع البصمات الموجودة أصلاً في الداتابيز، على دفعات."""
     found: set[str] = set()
@@ -67,11 +85,21 @@ def existing_hashes(client, hashes: list[str]) -> set[str]:
 
 
 def touch_seen(client, hashes: list[str]) -> None:
-    """حدّث last_seen_at للوظايف اللي لسه معروضة — عشان نعرف اللي اتشال."""
+    """
+    حدّث last_seen_at للوظايف اللي لسه معروضة — عشان نعرف اللي اتشال.
+
+    `returning=minimal` مش تفصيلة: الافتراضي إن PostgREST يرجّع كل صف
+    اتحدّث بكل أعمدته، يعني كل وظيفة معروضة بوصفها كامل، في كل تشغيلة
+    كل ساعة. ده اللي خلّص حصة نقل البيانات المجانية في Supabase
+    (exceed_egress_quota) ووقف المشروع كله يوم 23 أكتوبر.
+    """
+    from postgrest.types import ReturnMethod
     now = datetime.now(timezone.utc).isoformat()
     for i in range(0, len(hashes), CHUNK):
         batch = hashes[i:i + CHUNK]
-        client.table("jobs").update({"last_seen_at": now}).in_("content_hash", batch).execute()
+        client.table("jobs").update(
+            {"last_seen_at": now}, returning=ReturnMethod.minimal,
+        ).in_("content_hash", batch).execute()
 
 
 # ---------------------------------------------------------------------------
@@ -161,8 +189,10 @@ def save(client, jobs: list[Job]) -> list[Job]:
     if old:
         touch_seen(client, old)
 
+    from postgrest.types import ReturnMethod
     for i in range(0, len(new), 100):
-        client.table("jobs").insert([j.as_row() for j in new[i:i + 100]]).execute()
+        client.table("jobs").insert([j.as_row() for j in new[i:i + 100]],
+                                    returning=ReturnMethod.minimal).execute()
 
     return new
 
