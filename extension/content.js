@@ -67,8 +67,14 @@
     say(text);
   }
 
-  // بعد الملء بس: لما الصفحة تأكد الإرسال، بلّغ المساعد مرة واحدة
+  // بعد الملء بس: لما الصفحة تأكد الإرسال، بلّغ المساعد مرة واحدة.
+  // وكمان: Greenhouse (Remix/React) بيعيد رسم الصفحة كلها بعد التحميل
+  // وبيشيل الزرار (17 نوفمبر) — لو اختفى، رجّعه بنفس آخر رسالة.
+  let lastText = "";
   setInterval(async () => {
+    const out = document.getElementById("apply-agent-out");
+    if (out) lastText = out.textContent;
+    else if (document.body) { panel(); if (lastText) say(lastText); }
     if (!filledJob || reported) return;
     if (!SUCCESS.test(document.body.innerText || "")) return;
     reported = true;
@@ -76,5 +82,6 @@
     say(r.error ? "اتبعت، بس التسجيل وقع: " + r.error : "🎉 اتبعت، واتسجّل عندنا.");
   }, 1500);
 
-  panel();
+  document.documentElement.setAttribute("data-apply-agent", "1");
+  if (document.body) panel();
 })();
