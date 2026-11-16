@@ -85,6 +85,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # زرار "قدّم" والسيرة بتتظبط بعد الضغطة بس — زي التشغيلة على الجهاز
+          APPLY_FLOW: "1"
         run: python -m src.notify
 
       - name: Follow up on applications
