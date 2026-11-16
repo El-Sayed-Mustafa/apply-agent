@@ -27,3 +27,6 @@ applications/
 
 # بنك إجابات التقديم — فيه المرتب وتصريح العمل
 answers.yaml
+
+# توكن المساعد المحلي — بيكتبه src/helper.py
+extension/config.js

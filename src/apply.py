@@ -298,13 +298,37 @@ def start(db, job: dict, facts, policy, token, chat) -> str:
     return "asking"
 
 
+def ready_for_extension(db, job: dict, st: dict, token, chat) -> str:
+    """
+    الإجابات خلصت. الإرسال بقى من كروم بتاعك (extension/): الإضافة بتملا
+    وإنت بتدوس Submit. على الموبايل: قايمة النسخ.
+
+    17 نوفمبر: الإرسال الأوتوماتيك على Cohere ماتأكدش (reCAPTCHA غالبًا)،
+    ومش هنتحايل عليه. متصفحك وضغطتك = مفيش حاجة تتمسك.
+    APPLY_AUTOSUBMIT=1 بيرجّع الطريقة القديمة (صورة + 📤).
+    """
+    telegram.send(f"✅ <b>جاهز للتقديم</b> — {telegram.esc(job.get('title'))} "
+                  f"({telegram.esc(job.get('company_name'))})\n"
+                  "💻 على الكمبيوتر: افتح صفحة التقديم ودوس «📋 املا من Apply Agent»، "
+                  "راجع، ودوس Submit بنفسك.\n"
+                  "📱 على الموبايل: الأزرار اللي تحت.", token, chat)
+    for msg, kb in copy_kit(job, st):
+        telegram.send(msg, token, chat, markup=kb)
+    _set_status(db, job["id"], "ready", "جاهز للإضافة")
+    st["stage"] = "extension"
+    save_state(job["id"], st)
+    return "extension"
+
+
 def advance(db, job: dict, st: dict, facts, policy, token, chat) -> str:
-    """فيه أسئلة؟ اسأل. مفيش؟ املا وصوّر واطلب الموافقة."""
+    """فيه أسئلة؟ اسأل. مفيش؟ جاهز للإضافة (أو، قديمًا: املا وصوّر واطلب الموافقة)."""
     if form_answers.pending(st["answers"]):
         ask_pending(job, st, token, chat)
         st["stage"] = "asking"
         save_state(job["id"], st)
         return "asking"
+    if os.getenv("APPLY_AUTOSUBMIT") != "1":
+        return ready_for_extension(db, job, st, token, chat)
 
     folder = prepare.ROOT / str(job["id"])
     shot = folder / "form-preview.png"
@@ -480,7 +504,7 @@ def _run(db, dry: bool) -> dict:
         except Exception as exc:
             print(f"   ✗ {job['title'][:40]} — {type(exc).__name__}: {exc}"[:200])
             _set_status(db, jid, "failed", f"apply: {type(exc).__name__}: {exc}")
-    print(f"📊 اتبعت {out['sent']} · مستني موافقتك {out['preview']} · "
+    print(f"📊 اتبعت {out['sent']} · جاهز للإضافة {out.get('extension', 0)} · مستني موافقتك {out['preview']} · "
           f"مستني ردك {out['asking']} · يدوي {out['manual']} · اتقفل {out['closed']}")
     return out
 

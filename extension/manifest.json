@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Apply Agent",
+  "version": "0.1.0",
+  "description": "Fills job application forms from your prepared answers. You review and press Submit yourself.",
+  "background": { "service_worker": "background.js" },
+  "host_permissions": ["http://127.0.0.1:8765/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://jobs.ashbyhq.com/*"],
+      "js": ["fill.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
