@@ -162,7 +162,7 @@ def test_poster_key_ignores_location():
 # ── أزرار الموافقة ──────────────────────────────────────────────────────
 
 def test_keyboard_has_three_choices():
-    kb = telegram.keyboard(123)
+    kb = telegram.keyboard(123, apply_flow=False)
     row = kb["inline_keyboard"][0]
     assert len(row) == 3
     assert {b["callback_data"] for b in row} == {"a:123", "s:123", "l:123"}

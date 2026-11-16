@@ -235,6 +235,10 @@ def evaluate(job) -> Verdict:
         return out(False, f"محلي فقط: {reason}")
     if is_remote:
         return out(True, "ريموت")
+    # قاعدتك (16 نوفمبر): أي دولة — حتى أمريكا — بشرط إن الشركة تعمل
+    # الفيزا والانتقال. الإعلان لازم يقولها صراحة؛ السكوت مش كفاية برّه القايمة.
+    if elig == "open":
+        return out(True, f"بيرعوا تأشيرة أو انتقال: {country or job.location or '؟'}")
     if tier is None:
         return out(False, f"دولة برّه القايمة: {job.location or '؟'}")
     if tier == 4:

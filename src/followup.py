@@ -31,7 +31,7 @@ from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
 
-from . import telegram
+from . import runlog, telegram
 from .main import get_client
 
 load_dotenv()
@@ -250,6 +250,9 @@ def main() -> int:
 
     if not confirms and not outcomes:
         print("مفيش تقديمات محتاجة متابعة.")
+        # بنسجّل برضه: الرقيب بيعتبر الخطوة اللي ما سجّلتش إنها ما اشتغلتش
+        runlog.log("followup", datetime.now(timezone.utc),
+                   {"confirms": 0, "outcomes": 0, "auto_closed": closed})
         return 0
 
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()

@@ -293,3 +293,14 @@ def test_could_pass_is_never_stricter_than_evaluate():
                              "remote_type": remote, "description": ""})()
         if targeting.evaluate(job).eligible:
             assert targeting.could_pass(title, loc, remote), (title, loc)
+
+
+def test_any_country_passes_when_the_employer_sponsors():
+    """قاعدتك: حتى أمريكا، بشرط إن الشركة تعمل الفيزا والانتقال — صراحةً."""
+    job = type("J", (), {"title": "AI Engineer", "location": "Austin, United States",
+                         "remote_type": "onsite",
+                         "description": "We are happy to sponsor visas and offer a relocation package."})()
+    assert targeting.evaluate(job).eligible
+    silent = type("J", (), {"title": "AI Engineer", "location": "Austin, United States",
+                            "remote_type": "onsite", "description": "Great team."})()
+    assert not targeting.evaluate(silent).eligible

@@ -376,3 +376,37 @@ def test_descriptions_fetched_only_for_jobs_that_could_pass():
     assert [j["id"] for j in got] == [3]
     assert asked == [3]                      # وصف واحد بس اتنزّل
     assert got[0]["description"] == "d"
+
+
+# ── حقايق الوظيفة والسقف ───────────────────────────────────────────────
+
+def test_ai_training_gigs_and_internships_are_capped_in_code():
+    """الذاكرة: وظايف تدريب و"AI Training" كانت بتاخد تقييم عالي."""
+    job = {"location": "Riyadh", "remote_type": "onsite"}
+    for kind in ("internship", "graduate_program", "ai_training_gig"):
+        assert scoring.cap_by_facts(88, job, {"employment_type": kind}) == scoring.FACT_CAP
+    assert scoring.cap_by_facts(88, job, {"employment_type": "full_time"}) == 88
+
+
+def test_remote_closed_to_egypt_is_capped_unless_onsite_in_the_gulf():
+    facts = {"employment_type": "full_time", "remote_scope": "excludes_egypt"}
+    remote = {"location": "United States", "remote_type": "remote"}
+    dubai = {"location": "Dubai, UAE", "remote_type": "onsite"}
+    assert scoring.cap_by_facts(80, remote, facts) == scoring.FACT_CAP
+    assert scoring.cap_by_facts(80, dubai, facts) == 80
+
+
+def test_missing_facts_change_nothing():
+    assert scoring.cap_by_facts(77, {}, None) == 77
+
+
+def test_scorer_sees_skill_levels_but_never_contact_details():
+    text = scoring.load_cv()
+    assert "skill_levels" in text and "developing" in text
+    assert "@gmail.com" not in text and "+20" not in text
+    assert "Apply Agent" not in text            # مشروع متعطّل
+
+
+def test_schema_asks_for_facts():
+    assert "facts" in scoring.SCHEMA["required"]
+    assert "ai_training_gig" in scoring.EMPLOYMENT

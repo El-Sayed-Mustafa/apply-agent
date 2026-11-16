@@ -1,18 +1,14 @@
 <!--
-  قالب السيرة — صفحة واحدة، عمود واحد.
+  قالب السيرة — نسخة من تصميم FlowCV بتاعك (Resume 2026-11-16).
 
-  ⚠️ قاعدة مقدّسة: **مفيش أعمدة جانبية.**
+  اتقاس على الـ PDF الأصلي: A4، هوامش ~14مم، Source Sans 3، عناوين أقسام
+  بخط عريض وتحتها خط أسود بعرض الصفحة، المهارات في عمودين، والمشاريع
+  بأيقونة لينك جنب الاسم. صفحتين بحد أقصى.
 
-  مرّينا على شكلين وقعوا في نفس الفخ عند استخراج النص:
-    · grid من عمودين للمهارات والتعليم → الاستخراج بيلحم اليمين
-      بالشمال سطر بسطر:
-          "Python, FastAPI, REST APIs, Authentication, Automation"
-           └── عمود شمال ──────────────────┘ └─ عمود يمين ─┘
-    · لابل في عمود جنبه → اللابل نفسه بيتلف ("Automation &" /
-      "Scraping") فيتلحم بالقيم.
-
-  الـ ATS بيقرا الخليط ده كأنه جملة واحدة. عمود واحد من فوق لتحت
-  بيمنع ده تمامًا، وترتيب الـ DOM بيبقى هو نفسه ترتيب القراءة.
+  عن المهارات في عمودين: الاستخراج النصي بيقرا الصف بالعرض، فبيلحم
+  مجموعة الشمال بمجموعة اليمين في نفس السطر — وده موجود في سيرة FlowCV
+  الأصلية نفسها. الكلمات المفتاحية بتفضل موجودة كلها، فالـ ATS بيلاقيها؛
+  اللي بيتلخبط ترتيب العرض بس. اخترنا الشكل بتاعك عن قصد.
 
   الخط متضمّن base64، فالـ PDF بيطلع نفس الشكل على أي جهاز.
 -->
@@ -27,111 +23,81 @@
 @font-face { font-family:'SS'; font-weight:400; font-style:italic;
              src:url(data:font/ttf;base64,__ITAL__) format('truetype'); }
 
-@page { size:A4; margin:10mm 11mm; }
+@page { size:A4; margin:12.5mm 13.8mm 12mm 13.8mm; }
 
 :root{
-  --ink:#111;
-  --soft:#3a3a3a;
-  --muted:#6a6a6a;
-  --fs:9.7pt;
-  --lh:1.34;
+  --ink:#141414;
+  --fs:10.8pt;
+  --lh:1.38;
 }
 
 *{ margin:0; padding:0; box-sizing:border-box; }
 
 body{
   font-family:'SS','Source Sans 3','Segoe UI',sans-serif;
-  font-size:var(--fs); line-height:var(--lh); color:var(--soft);
+  font-size:var(--fs); line-height:var(--lh); color:var(--ink);
   -webkit-font-smoothing:antialiased;
-  /* Chromium بيوزّع الأسطر عشان مايبقاش فيه سطر أخير بكلمة واحدة.
-     السطر اليتيم ده أوضح عيب بصري في السيرة، وبيحصل في أي فقرة
-     طولها شوية فوق السطر. */
-  text-wrap:pretty;
   orphans:2; widows:2;
 }
+a{ color:inherit; text-decoration:none; }
 
 /* ── الترويسة ─────────────────────────────────────────────── */
-header{ text-align:center; margin-bottom:4.2mm; }
-h1{ font-size:21pt; font-weight:700; color:var(--ink);
-    letter-spacing:-.35pt; line-height:1.02; }
-.role{ font-size:10.4pt; color:var(--muted); margin-top:.9mm;
-       letter-spacing:.15pt; }
-.meta{ font-size:8.4pt; color:var(--muted); margin-top:2mm; }
-.meta a{ color:var(--muted); text-decoration:none; }
-.meta .sep{ padding:0 1.1mm; opacity:.4; }
-/* سطر واحد بالظبط: الفاصل والأيقونات أضيق عن قصد. لو اتلف، بيسيب
-   كلمة واحدة في سطر لوحدها وده أوضح عيب في الترويسة. */
-.meta{ white-space:nowrap; }
-.meta .ic{ margin-right:.7mm; width:2.4mm; height:2.4mm; }
-/* الأيقونة SVG مرسومة، مش حرف — يعني مبتظهرش خالص في استخراج
-   النص، فالـ ATS بيقرا الإيميل نضيف من غير رموز قبله */
-.ic{ width:2.6mm; height:2.6mm; vertical-align:-.4mm;
-     margin-right:1mm; stroke:currentColor; stroke-width:1.6;
-     fill:none; stroke-linecap:round; stroke-linejoin:round;
-     opacity:.8; }
-.ic.fill{ fill:currentColor; stroke:none; }
+header{ text-align:center; margin-bottom:4.6mm; }
+h1{ font-size:18.5pt; font-weight:700; line-height:1.1; }
+.role{ font-size:11.2pt; margin-top:1.4mm; }
+.meta{ font-size:10.4pt; margin-top:2.6mm; line-height:1.85; }
+.meta .item{ white-space:nowrap; margin:0 2.2mm; }
+.ic{ width:3.2mm; height:3.2mm; vertical-align:-.55mm; margin-right:1.4mm;
+     fill:currentColor; stroke:none; }
+.ic.line{ fill:none; stroke:currentColor; stroke-width:1.7;
+          stroke-linecap:round; stroke-linejoin:round; }
 
 /* ── الأقسام ──────────────────────────────────────────────── */
-section{ margin-top:3.6mm; }
+section{ margin-top:4.4mm; }
 h2{
-  font-size:8.8pt; font-weight:700; color:var(--ink);
-  text-transform:uppercase;
-  /* تباعد صغير عن قصد: 1.1pt كان بيخلي بعض المستخرِجات تقرا
-     "EXPERI ENCE" — والـ ATS ساعتها مش بيتعرّف على القسم أصلاً */
-  letter-spacing:.5px;
-  padding-bottom:.8mm; margin-bottom:2mm;
-  border-bottom:.8pt solid #111;
+  font-size:11.6pt; font-weight:700; letter-spacing:.35pt;
+  padding:0 0 .9mm 0; margin-bottom:2.2mm;
+  border-bottom:1.6pt solid var(--ink);
+  break-after:avoid;
 }
+.summary{ text-align:left; }
 
-.summary{ color:var(--soft); }
-
-/* ── الوظيفة/المشروع: كل واحدة كتلة واحدة ─────────────────── */
-/* العنوان والنقط جوّه نفس الـ article — مايتفصلوش عند الطباعة
-   ولا في ترتيب النص جوّه الملف */
-.block{ break-inside:avoid; page-break-inside:avoid; margin-top:2.6mm; }
+.block{ margin-top:2.4mm; break-inside:avoid; }
 .block:first-of-type{ margin-top:0; }
-
 .head{ display:flex; justify-content:space-between; align-items:baseline;
-       gap:5mm; }
-.what{ font-size:10.2pt; font-weight:700; color:var(--ink); }
-.what a{ color:var(--ink); text-decoration:none; }
-.where{ font-weight:400; color:var(--ink); }
-.when{ font-size:8.7pt; color:var(--muted); white-space:nowrap; }
-.stack{ font-style:italic; color:var(--muted); font-size:8.8pt;
-        margin-top:.3mm; }
+       gap:4mm; }
+.what{ font-weight:700; }
+.where{ font-style:italic; }
+.when{ white-space:nowrap; }
+.when .bar{ padding:0 1.6mm; }
+.sub{ font-style:italic; }
+/* زي FlowCV: لو "الجهة | الأدوات" مش هتكفي في السطر، بتنزل كلها
+   سطر جديد بدل ما تتقطع في النص */
+.head + .sub, .inl .sub{ display:inline-block; }
 
-/* ── النقط ────────────────────────────────────────────────── */
-/* قايمة عادية بعلامة حقيقية — من غير position:absolute.
-   الـ ::before المطلق كان بيخلي Chromium يرسم القايمة كلها في
-   طبقة منفصلة، فالنقط بتتأخر في ترتيب النص جوّه الـ PDF
-   وبتتقري بعد كل العناوين. */
-ul{ list-style:disc outside; margin-top:1mm; padding-left:3.6mm; }
-li{ margin-top:1mm; }
-li::marker{ color:#9a9a9a; font-size:7pt; }
+ul{ list-style:none; }
+/* النقطة inline بمسافة معلّقة، مش position:absolute — المطلق بيترسم في
+   طبقة لوحده فبيتأخر في ترتيب النص جوّه الـ PDF */
+li{ padding-left:4.2mm; text-indent:-4.2mm; }
+li::before{ content:"•"; display:inline-block; width:4.2mm;
+            text-indent:0; padding-left:.6mm; font-weight:700; }
+b{ font-weight:600; }
 
-/* الأرقام هي أول حاجة العين بتقف عليها — وزن أعرض ولون أغمق */
-b{ font-weight:600; color:var(--ink); }
+/* أيقونة اللينك الصغيرة جنب اسم المشروع والشهادة */
+.ext{ width:2.6mm; height:2.6mm; vertical-align:-.1mm; margin:0 0 0 1.2mm;
+      fill:none; stroke:#555; stroke-width:1.5; stroke-linecap:round;
+      stroke-linejoin:round; }
 
-/* ── المهارات — فقرة لكل مجموعة، اللابل أول الكلام ────────── */
-/* الأسطر الملفوفة بتزيح لجوّه عشان اللابل يفضل باين على الحافة */
-.skills{ margin-top:.4mm; }
-.srow{ margin-top:1.3mm; padding-left:5mm; text-indent:-5mm; }
-.srow:first-child{ margin-top:0; }
-.slabel{ font-weight:700; color:var(--ink); }
+/* ── المهارات: عمودين ─────────────────────────────────────── */
+.skills{ display:grid; grid-template-columns:1fr 1fr; column-gap:9mm;
+         row-gap:3.2mm; }
+.skills .group{ break-inside:avoid; }
 
-/* ── الذيل — برضه عمود واحد ───────────────────────────────── */
-.inline{ margin-top:.4mm; }
-.inline .sep{ padding:0 1.6mm; opacity:.4; color:var(--muted); }
-.inline a{ color:var(--soft); text-decoration:none; }
-.by{ color:var(--muted); }
-
-/* قايمة مضغوطة للشهادات واللغات: كل عنصر سطر لوحده.
-   الفاصل النقطي كان بيختفي في الاستخراج فالعناصر تلتزق —
-   "DeepLearning.AI Advanced SQL". السطر المستقل مبيلتبسش. */
-ul.tight{ margin-top:.6mm; }
-
-ul.tight li{ margin-top:.35mm; }
-ul.tight a{ color:var(--soft); text-decoration:none; }
+/* ── الشهادات واللغات ─────────────────────────────────────── */
+.cert{ margin-top:1.9mm; }
+.cert:first-child{ margin-top:0; }
+.langs{ display:grid; grid-template-columns:repeat(3, 1fr); }
+.langs .what{ display:block; }
 </style>
 
 <header>
@@ -139,5 +105,4 @@ ul.tight a{ color:var(--soft); text-decoration:none; }
   <div class="role">__ROLE__</div>
   <div class="meta">__META__</div>
 </header>
-
 __BODY__

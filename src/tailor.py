@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 import yaml
 from google.genai import types
 
+from . import genai_pool
 from .scoring import MODELS, _is_daily_quota, _retry_delay
 
 MODEL_LIST = MODELS
@@ -112,6 +113,8 @@ def load_catalogue(path: str | None = None) -> tuple[dict[str, dict], str]:
         if entries:
             lines.append(f"\n{label}")
         for entry in entries:
+            if entry.get("active") is False:     # مش في السيرة الحالية
+                continue
             head = entry.get("role") or entry.get("name") or ""
             lines.append(f"  [{head}]")
             for b in entry.get("bullets") or []:
@@ -233,7 +236,7 @@ def tailor(client, job: dict, cv_path: str | None = None,
                 last = f"{type(exc).__name__}: {msg[:120]}"
                 if _is_daily_quota(msg):
                     break
-                if not any(c in msg for c in ("429", "503", "500", "UNAVAILABLE")):
+                if not genai_pool.is_transient(msg):
                     return None, last
                 time.sleep((_retry_delay(msg) or 2 ** attempt) + 0.5)
                 continue

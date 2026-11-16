@@ -24,6 +24,7 @@ import time
 
 from google.genai import types
 
+from . import genai_pool
 from .scoring import API_RETRIES, MODELS, _is_daily_quota, _retry_delay
 
 MAX_WORDS = int(os.getenv("COMMENT_MAX_WORDS", "13"))
@@ -149,7 +150,7 @@ def write(client, post: dict, models: list[str] | None = None
                 last = f"{type(exc).__name__}: {msg[:100]}"
                 if _is_daily_quota(msg):
                     break
-                if not any(c in msg for c in ("429", "503", "500", "UNAVAILABLE")):
+                if not genai_pool.is_transient(msg):
                     return None, model, last
                 time.sleep((_retry_delay(msg) or 2 ** attempt) + 0.5)
                 continue

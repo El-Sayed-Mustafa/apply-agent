@@ -105,6 +105,10 @@ def _tailored_cv(db, job: dict):
     key = os.getenv("GEMINI_API_KEY")
     if not key or os.getenv("NOTIFY_NO_CV"):
         return None, "", ""
+    # مع أزرار التقديم: السيرة بتتظبط لما تدوس "قدّم" بس (src/customize.py)،
+    # مش مع كل إشعار. الإشعار نص، ومفيش نداء Gemini على وظيفة ممكن ترفضها.
+    if os.getenv("APPLY_FLOW") == "1":
+        return None, "", ""
     try:
         from google import genai
         from . import render, tailor
@@ -130,6 +134,26 @@ def _tailored_cv(db, job: dict):
         return None, "", ""
 
 
+def prepare_approved(db) -> None:
+    """
+    الوظايف اللي دُست عليها "قدّم" بتتجهّز هنا — في نفس الأمر اللي المهمة
+    اليومية بتشغّله أصلاً، عشان مايبقاش فيه أمر جديد يوقفها على سؤال
+    صلاحيات. على GitHub بيتخطّى لوحده: مفيش answers.yaml ولا مفتاح Claude.
+    """
+    if os.getenv("APPLY_FLOW") != "1":
+        return
+    from . import apply, prepare
+    why = prepare.ready()
+    if why:
+        print(f"   (التجهيز اتخطّى — {why})")
+        return
+    print("📦 تجهيز اللي وافقت عليه\n")
+    try:
+        apply.run(db)        # Ashby: ملء + موافقتك قبل الإرسال · الباقي: ملف يدوي
+    except Exception as exc:                 # التجهيز عمره ما يوقّف الإرسال
+        print(f"   ⚠ التجهيز وقع: {type(exc).__name__}: {exc}"[:200])
+
+
 def deliver(db, items: list[dict], token: str, chat_id: str) -> dict:
     sent = failed = 0
     for i, item in enumerate(items):
@@ -146,7 +170,7 @@ def deliver(db, items: list[dict], token: str, chat_id: str) -> dict:
             if buf:
                 row["message_id"] = telegram.send_document(
                     buf, fname, text, token, chat_id,
-                    markup=telegram.keyboard(job["id"]))
+                    markup=telegram.keyboard(job["id"], job.get("url")))
                 # النقط المختارة بتتسجّل هنا — في deliveries مش applications.
                 # deliveries = إحنا بعتنا إيه · applications = إنت قررت إيه.
                 # لو كتبناها في applications، كل وظيفة اتبعتت هتبان كأنك
@@ -154,7 +178,8 @@ def deliver(db, items: list[dict], token: str, chat_id: str) -> dict:
                 row["bullet_ids"] = tailored.bullet_ids
             else:
                 row["message_id"] = telegram.send_with_retry(
-                    text, token, chat_id, markup=telegram.keyboard(job["id"]))
+                    text, token, chat_id,
+                    markup=telegram.keyboard(job["id"], job.get("url")))
             sent += 1
             print(f"   ✅ {score['score_final']:>3} {job['company_name'][:16]:<18}"
                   f"{job['title'][:44]}")
@@ -209,6 +234,8 @@ def main() -> int:
 
     # ── التشغيل العادي ──
     db = get_client()
+    if not args.dry_run:
+        prepare_approved(db)
     items = unsent(db, args.limit)
 
     if not items:

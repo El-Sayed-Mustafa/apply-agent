@@ -21,7 +21,9 @@ concurrency:
 jobs:
   poll:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # السحب لوحده بقى ياخد 8-9 دقايق (حوالي 570 مصدر). على 10 كان التقييم
+    # والإرسال بيتلغوا في كل تشغيلة. الريبو public فالدقايق مش محسوبة.
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4

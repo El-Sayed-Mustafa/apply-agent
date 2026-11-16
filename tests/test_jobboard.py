@@ -257,3 +257,73 @@ def test_bahrain_and_oman_are_searched():
     """في المستوى الأول من الأول، بس عمرهم ما اتدوّر عليهم في اللوحة."""
     _, locations = jobboard.config()
     assert "Bahrain" in locations and "Oman" in locations
+
+
+# ── صفحة البحث الجديدة (نوفمبر 2026) ───────────────────────────────────
+# السطور دي منقولة من كروت حقيقية يوم 13 نوفمبر.
+
+def test_new_card_with_verified_mark_and_bare_city():
+    c = jobboard.parse_card({"id": "4488650852", "lines": [
+        "Senior Engineer - AI Delivery (Verified job)",
+        "Senior Engineer - AI Delivery", "Elm Company", "Riyadh",
+        "3 connections work here", "Viewed"]})
+    assert c["title"] == "Senior Engineer - AI Delivery"
+    assert c["company"] == "Elm Company"
+    assert c["location"] == "Riyadh"
+
+
+def test_company_named_after_a_city_is_not_the_location():
+    c = jobboard.parse_card({"id": "1", "lines": [
+        "AI & Machine Learning Developer", "AI & Machine Learning Developer",
+        "Riyadh Cables Group", "Riyadh, Saudi Arabia (On-site)"]})
+    assert c["company"] == "Riyadh Cables Group"
+    assert c["location"] == "Riyadh, Saudi Arabia"
+    assert c["remote_type"] == "onsite"
+
+
+def test_two_company_lines_still_find_the_city():
+    c = jobboard.parse_card({"id": "2", "lines": [
+        "AI Tech Associate - Riyadh", "BCG Platinion",
+        "Boston Consulting Group (BCG)", "Riyadh", "1 connection works here"]})
+    assert c["location"] == "Riyadh"
+
+
+def test_search_uses_the_whole_country_not_one_city():
+    """`location=Saudi Arabia` بقت "Riyadh (40 km)": 30 نتيجة بدل 48."""
+    url = jobboard.search_url("AI Engineer", "Saudi Arabia")
+    assert "/jobs/search-results/" in url and "geoId=100459316" in url
+    assert jobboard.RECENT in url
+
+
+def test_every_searched_country_has_a_region_id():
+    _, locations = jobboard.config()
+    assert set(locations) <= set(jobboard.GEO_IDS)
+
+
+def test_district_only_location_gets_the_searched_country():
+    """'Qesm El Maadi' حي في القاهرة — من غير الدولة كان هيترفض."""
+    card = {"id": "3", "title": "AI Engineer", "location": "Qesm El Maadi",
+            "remote_type": "onsite"}
+    out = jobboard.with_country(card, "Egypt")
+    assert out["location"] == "Qesm El Maadi, Egypt"
+    from src import targeting
+    assert targeting.could_pass(out["title"], out["location"], out["remote_type"])
+
+
+def test_location_that_names_a_country_is_left_alone():
+    card = {"id": "4", "location": "Dubai, United Arab Emirates"}
+    assert jobboard.with_country(card, "Qatar") == card
+
+
+def test_new_job_page_chrome_and_peoples_names_are_cut():
+    """الصفحة الجديدة بتحط Premium و"People you can reach out to" قبل الإعلان."""
+    raw = ("Applied AI Engineer\n\nKuwait City, Kuwait · 2 days ago · 17 people clicked apply\n\n"
+           "Promoted by hirer\nApply\nSave\nReactivate Premium: 50% Off\n\n"
+           "People you can reach out to\n\nSomeone Real\n\n• 2nd\nConnect\n"
+           "About the job\n\nWe build agents for banks. " + "x " * 300 +
+           "\n\nBenefits found in job post\n\nPaid leave")
+    out = jobboard.clean_desc(raw, "Applied AI Engineer")
+    assert out.startswith("Applied AI Engineer")
+    assert "Kuwait City" in out and "About the job" in out
+    assert "Someone Real" not in out and "Premium" not in out
+    assert "Benefits found" not in out

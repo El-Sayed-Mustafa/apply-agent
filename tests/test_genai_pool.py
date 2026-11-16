@@ -138,3 +138,21 @@ def test_drop_in_shape():
     p = pool_with(["a"], {})
     assert hasattr(p, "models")
     assert callable(p.models.generate_content)
+
+
+# ── نداء معلّق ──────────────────────────────────────────────────────────
+
+def test_a_timed_out_call_is_retryable():
+    """13 نوفمبر: طلب معلّق وقف التقييم ربع ساعة — نفس الطلب بعدها رد في ثانية."""
+    assert genai_pool.is_transient("The read operation timed out")
+    assert genai_pool.is_transient("ReadTimeout")
+    assert not genai_pool.is_transient("400 INVALID_ARGUMENT")
+
+
+def test_every_call_has_a_ceiling():
+    assert 5_000 <= genai_pool.TIMEOUT_MS <= 120_000
+
+
+def test_server_side_deadline_is_retryable():
+    """المهلة بتتبعت لجوجل، فلما تخلص عنده بيرجّع 504 مش timeout محلي."""
+    assert genai_pool.is_transient("504 DEADLINE_EXCEEDED. {'error': {'code': 504}}")

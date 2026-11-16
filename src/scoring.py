@@ -116,6 +116,16 @@ Location: {location}
 {description}
 """
 
+# أنواع التوظيف اللي بتتسقّف مهما كان التطابق. الذاكرة: وظايف تدريب
+# وشغل "AI Training" كانت بتاخد تقييم عالي لإن المسمى فيه AI.
+EMPLOYMENT = ["full_time", "contract", "part_time", "internship",
+              "graduate_program", "ai_training_gig", "freelance_task",
+              "unknown"]
+CAPPED_EMPLOYMENT = {"internship", "graduate_program", "ai_training_gig"}
+REMOTE_SCOPE = ["worldwide", "includes_egypt", "mena_or_emea",
+                "excludes_egypt", "not_remote", "unknown"]
+FACT_CAP = 30
+
 SCHEMA = {
     "type": "object",
     "properties": {
@@ -125,8 +135,23 @@ SCHEMA = {
         "matched":   {"type": "array", "items": {"type": "string"}},
         "gaps":      {"type": "array", "items": {"type": "string"}},
         "reasoning": {"type": "string"},
+        # حقايق من نص الإعلان نفسه — نفس النداء، فمفيش تكلفة زيادة
+        "facts": {
+            "type": "object",
+            "properties": {
+                "employment_type": {"type": "string", "enum": EMPLOYMENT},
+                "remote_scope":    {"type": "string", "enum": REMOTE_SCOPE},
+                "min_years":       {"type": "integer", "nullable": True},
+                "salary":          {"type": "string"},
+                "visa_sponsorship": {"type": "string",
+                                     "enum": ["yes", "no", "unknown"]},
+                "evidence":        {"type": "string"},
+            },
+            "required": ["employment_type", "remote_scope", "min_years",
+                         "salary", "visa_sponsorship", "evidence"],
+        },
     },
-    "required": ["score", "verdict", "matched", "gaps", "reasoning"],
+    "required": ["score", "verdict", "matched", "gaps", "reasoning", "facts"],
 }
 
 PROMPT = """You are screening a job for one specific candidate. Score the fit.
@@ -148,6 +173,31 @@ RULES:
 - If the role is not one the candidate is seeking, cap the score at 50.
 - `matched` and `gaps`: short phrases, max 8 words each, max 6 items each.
 - `reasoning`: max 40 words.
+
+SKILL LEVELS (in the candidate's `skill_levels`):
+- verified: full credit.
+- developing: partial credit only, and never describe it as an established
+  skill.
+- future: counts as missing.
+
+FACTS — copy from the job text only. Use "unknown" (or null / "") when the
+text does not say. Never infer salary, sponsorship or remote scope.
+- employment_type: ai_training_gig = paid tasks writing, rating or labelling
+  data to train AI models ("AI Trainer", "AI training", data annotation).
+- remote_scope: worldwide; includes_egypt; mena_or_emea; excludes_egypt
+  (remote limited to places that do not include Egypt, e.g. "US only");
+  not_remote; unknown.
+- min_years: the highest minimum years of experience explicitly required.
+- salary: as written in the text, else "".
+- visa_sponsorship: "yes" only if explicitly offered, "no" only if explicitly
+  refused.
+- evidence: the exact short phrases you relied on, max 30 words.
+
+CAPS:
+- employment_type internship, graduate_program or ai_training_gig: cap the
+  score at 30.
+- remote_scope excludes_egypt and the job is not on-site in Saudi Arabia,
+  the UAE, Qatar, Kuwait, Bahrain, Oman or Egypt: cap the score at 30.
 
 CANDIDATE
 {cv}
@@ -176,9 +226,14 @@ def load_cv(path: str | None = None) -> str:
     with open(path or CV_PATH, encoding="utf-8") as f:
         cv = yaml.safe_load(f) or {}
 
-    SEND = ("profile", "skills", "not_experienced_with",
-            "experience", "projects", "certificates", "seeking")
+    SEND = ("profile", "skills", "skill_levels", "skill_synonyms",
+            "not_experienced_with", "experience", "projects",
+            "certificates", "seeking")
     trimmed = {k: v for k, v in cv.items() if k in SEND}
+    # المشاريع المتعطّلة مش في السيرة الحالية — المقيّم مايشوفهاش
+    if isinstance(trimmed.get("projects"), list):
+        trimmed["projects"] = [p for p in trimmed["projects"]
+                               if p.get("active") is not False]
 
     # الروابط بتتشال كمان: المقيّم مش هيقيّم أحسن لأنه شايف رابط الريبو،
     # وفيه اسم حسابك. بتفضل في المستند بس.
@@ -256,7 +311,7 @@ def refute(client, cv_text: str, job: dict, first: dict,
                 msg = str(exc)
                 if _is_daily_quota(msg):
                     break
-                if not any(c in msg for c in ("429", "503", "500", "UNAVAILABLE")):
+                if not genai_pool.is_transient(msg):
                     return None, 0, f"{type(exc).__name__}: {msg[:110]}"
                 time.sleep((_retry_delay(msg) or 2 ** attempt) + 0.5)
                 continue
@@ -310,7 +365,7 @@ def score_job(client, cv_text: str, job: dict,
                     break
 
                 # خطأ دائم (400، 404، مفتاح غلط) → مفيش فايدة من التكرار
-                if not any(c in msg for c in ("429", "503", "500", "UNAVAILABLE")):
+                if not genai_pool.is_transient(msg):
                     return None, 0, last, model
 
                 time.sleep((_retry_delay(msg) or 2 ** attempt) + 0.5)
@@ -440,6 +495,28 @@ def pending(db, limit: int) -> list[dict]:
     return out
 
 
+FACTS_COLUMN = [True]          # بيتقفل لوحده لو العمود مش موجود
+GULF_EGYPT = {"Saudi Arabia", "United Arab Emirates", "Qatar", "Kuwait",
+              "Bahrain", "Oman", "Egypt"}
+
+
+def cap_by_facts(score: int, job: dict, facts: dict | None) -> int:
+    """
+    السقف بيتطبّق هنا كمان، مش متروك للموديل. الموديل بيستخرج الحقيقة،
+    والكود بيقرر — عشان قاعدة زي "مفيش تدريب" تفضل ثابتة.
+    """
+    if not facts:
+        return score
+    if facts.get("employment_type") in CAPPED_EMPLOYMENT:
+        return min(score, FACT_CAP)
+    if facts.get("remote_scope") == "excludes_egypt":
+        country, _ = targeting.detect_country(job.get("location"))
+        onsite_ok = country in GULF_EGYPT and job.get("remote_type") != "remote"
+        if not onsite_ok:
+            return min(score, FACT_CAP)
+    return score
+
+
 def _could_pass(row: dict) -> bool:
     return targeting.could_pass(row.get("title"), row.get("location"),
                                 row.get("remote_type"))
@@ -534,6 +611,7 @@ def run(db, limit: int = BATCH) -> dict:
             tokens += rtk
 
         final = min(out["score"], ref["score"]) if ref else out["score"]
+        final = cap_by_facts(final, job, out.get("facts"))
         drop = out["score"] - final
 
         try:
@@ -556,6 +634,7 @@ def run(db, limit: int = BATCH) -> dict:
                         else out["gaps"][:6],
                 "reasoning": out["reasoning"][:600],
                 "total_tokens": tk + rtk,
+                **({"facts": out.get("facts")} if FACTS_COLUMN[0] else {}),
             }, on_conflict="job_id,scorer_version").execute()
             scored += 1
             refuted += 1 if drop else 0
@@ -563,6 +642,12 @@ def run(db, limit: int = BATCH) -> dict:
             print(f"   {final:>3}{mark:<5} {job['company_name'][:16]:<18}"
                   f"{job['title'][:40]}")
         except Exception as exc:
+            # عمود facts لسه ما اتضافش (sql/007_score_facts.sql) — نكمّل من
+            # غيره بدل ما التقييم كله يقع، ونقول مرة واحدة
+            if FACTS_COLUMN[0] and "facts" in str(exc):
+                FACTS_COLUMN[0] = False
+                print("   (عمود facts مش موجود — شغّل sql/007_score_facts.sql؛ "
+                      "الحقايق مش هتتحفظ لحد ساعتها)")
             failed += 1
             print(f"   ✗ حفظ فشل — {type(exc).__name__}: {exc}"[:150])
             _note_failure(db, job["id"], f"save: {exc}")

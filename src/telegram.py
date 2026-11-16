@@ -130,18 +130,42 @@ def format_job(job: dict, score: dict) -> str:
     return "\n".join(lines)
 
 
-def keyboard(job_id: int) -> dict:
+def keyboard(job_id: int, url: str | None = None,
+             apply_flow: bool | None = None) -> dict:
     """
     الأزرار تحت الرسالة.
 
     callback_data محدود بـ 64 بايت عند تليجرام، فبنبعت حرف ورقم بس:
     "a:123". الـ Edge Function بيتحقق من الشكل ده بتعبير صارم قبل
     ما يلمس الداتابيز.
+
+    الدفعة 2 (APPLY_FLOW=1): "قدّم" بدل "قدّمت" — الضغطة بتجهّز وتملا
+    الفورم، والإرسال موافقة تانية. ورا مفتاح لإن الأزرار الجديدة محتاجة
+    الـwebhook الجديد منشور والجداول متعملة؛ قبل كده الضغطة كانت هترجع "?".
     """
-    return {"inline_keyboard": [[
-        {"text": "✅ قدّمت",     "callback_data": f"a:{job_id}"},
+    if apply_flow is None:
+        apply_flow = os.getenv("APPLY_FLOW") == "1"
+    if not apply_flow:
+        return {"inline_keyboard": [[
+            {"text": "✅ قدّمت",     "callback_data": f"a:{job_id}"},
+            {"text": "❌ مش مناسبة", "callback_data": f"s:{job_id}"},
+            {"text": "🕐 بعدين",     "callback_data": f"l:{job_id}"},
+        ]]}
+    rows = [[
+        {"text": "✅ قدّم",       "callback_data": f"p:{job_id}"},
         {"text": "❌ مش مناسبة", "callback_data": f"s:{job_id}"},
-        {"text": "🕐 بعدين",     "callback_data": f"l:{job_id}"},
+        {"text": "💾 احفظ",      "callback_data": f"v:{job_id}"},
+    ]]
+    if url and url.startswith(("http://", "https://")):
+        rows.append([{"text": "🔗 الإعلان", "url": url}])
+    return {"inline_keyboard": rows}
+
+
+def submit_keyboard(approval_id: int) -> dict:
+    """تأكيد الإرسال — الرقم رقم طلب الموافقة، وبينتهي."""
+    return {"inline_keyboard": [[
+        {"text": "📤 ابعت",   "callback_data": f"ys:{approval_id}"},
+        {"text": "🛑 متبعتش", "callback_data": f"yn:{approval_id}"},
     ]]}
 
 
@@ -228,8 +252,10 @@ def set_webhook(url: str, secret: str, token: str | None = None) -> dict:
     return call("setWebhook", {
         "url": url,
         "secret_token": secret,
-        "allowed_updates": ["callback_query"],   # أقل صلاحية تكفي الشغل
-        "drop_pending_updates": True,
+        # الضغطات + الردود النصية (إجابات أسئلة الفورم). الـwebhook بيحفظ
+        # الرد بس لو reply على رسالة ومن محادثتك — أي رسالة تانية بتتجاهل.
+        "allowed_updates": ["callback_query", "message"],
+        "drop_pending_updates": False,
     }, token or _config()[0])
 
 
@@ -252,6 +278,7 @@ def send_document(buf, filename: str, caption: str,
     # بيقبله بس بعض العملاء بتفشل في المعاينة.
     mime = {
         ".pdf":  "application/pdf",
+        ".png":  "image/png",
         ".docx": ("application/vnd.openxmlformats-officedocument"
                   ".wordprocessingml.document"),
     }.get(Path(filename).suffix.lower(), "application/octet-stream")

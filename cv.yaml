@@ -1,16 +1,21 @@
 # ═══════════════════════════════════════════════════════════════════════
 # سيرتك الذاتية كبيانات منظّمة.
 #
-# المصدر: FlowCV Resume 2026-08-30 + github.com/El-Sayed-Mustafa
+# المصدر: FlowCV Resume 2026-11-16 + github.com/El-Sayed-Mustafa
+# (النسخة اللي قبلها في logs/cv.yaml.before-2026-11-16)
 #
 # ⚠️  كل تقييم وكل مستند في المنظومة مبني على الملف ده. البيانات هنا
 #     بتتعامل كحقيقة مطلقة — مفيش حاجة بتراجعها.
 #
-# كل نقطة ليها معرّف ثابت (b1, b2, …). التظبيط بيرجّع معرّفات بس،
+# كل نقطة ليها معرّف ثابت (b29, b30, …). التظبيط بيرجّع معرّفات بس،
 # والنص بيتقرا من هنا. عشان كده الاختلاق مستحيل هندسيًا.
 #
 # 🔒 متغيّرش معرّف موجود — الاختيارات القديمة في deliveries بتشير ليه.
-#    ضيف معرّفات جديدة في الآخر بس.
+#    ضيف معرّفات جديدة في الآخر بس. b1–b28 كانوا صياغة أغسطس واتقاعدوا
+#    يوم 16 نوفمبر مع السيرة الجديدة؛ متستخدمش أرقامهم تاني.
+#
+# الترتيب هنا هو ترتيب سيرتك في FlowCV. التظبيط بيختار ويرتّب جوّاه،
+# والشكل بيفضل شكلها.
 # ═══════════════════════════════════════════════════════════════════════
 
 # بيانات الاتصال — للمستند بس، **مبتتبعتش للموديل أبدًا**
@@ -24,7 +29,7 @@ contact:
     LinkedIn:  "https://www.linkedin.com/in/el-sayed-mustafa/"
     GitHub:    "https://github.com/El-Sayed-Mustafa"
     Upwork:    "https://www.upwork.com/freelancers/elsayedm7"
-    Portfolio: "https://el-sayed-mustafa.github.io/MyPortflio/"
+    Portfolio: "https://ai-automation-portfolio-sage-three.vercel.app/"
 
 profile:
   title: "AI & Automation Engineer"
@@ -32,40 +37,68 @@ profile:
   location: "Cairo, Egypt"
   languages: ["Arabic (native)", "English (professional)"]
   open_to: ["remote", "relocation", "visa sponsorship"]
-  # بتظهر في الترويسة بس لو show_notes = true. مفيدة للتقديم داخل
-  # مصر، وبتزحم السطر من غير فايدة في التقديم الريموت أو الخارجي.
+  # سطر في الترويسة جنب اللينكات، زي سيرة FlowCV
   notes: "Completed military service"
-  show_notes: false
+  show_notes: true
   summary: >
-    AI & Automation Engineer shipping production LLM and automation systems
-    end to end: backend, data, retrieval, and the integrations that hold them
-    together. Owns solutions from requirements and data modeling through
-    integration, testing, and delivery.
-
-  # النسخة اللي بتتحط في السيرة — سطرين بالظبط عشان الصفحة الواحدة
-  summary_short: >
-    AI & Automation Engineer building LLM agents, backend services and data
-    pipelines that run unattended in production — Python, FastAPI, Supabase,
-    and the integrations that hold them together under real load.
+    AI & Automation Engineer with 2+ years of experience shipping production
+    LLM and automation systems end to end: backend, data, retrieval, and the
+    integrations that hold them together. Built a local-first AI copilot with
+    scoped retrieval (RAG), grounding controls, and local model serving,
+    alongside marketplace intelligence platforms and bilingual client CRMs on
+    Python, FastAPI, and Supabase/PostgreSQL. Owns solutions from requirements
+    and data modeling through integration, testing, and delivery.
 
 # ── المهارات ───────────────────────────────────────────────────────────
+# 6 مجموعات بنفس ترتيب السيرة (عمودين: الشمال ثم اليمين في كل صف).
 
-# 4 مجموعات بس. 7 مجموعات كانت بتشتّت العين وبتاخد ثلث الصفحة —
-# والـ recruiter بيمسح المهارات في ثانيتين، مش بيقراها.
-# 4 مجموعات بس، وكل واحدة مركّزة. المهارات بتتقري في ثانيتين —
-# القايمة الطويلة بتضيّع الأهم وسط الأقل أهمية.
 skills:
-  Backend & APIs:
-    [Python, FastAPI, "REST APIs", Webhooks, Authentication,
-     PostgreSQL, Supabase, SQL]
-  AI & LLM:
-    ["LLM APIs", RAG, "AI agents", "Prompt engineering", "Structured output",
-     "Model evaluation", Ollama, Whisper]
+  Python & Backend:
+    [Python, FastAPI, "REST APIs", Authentication, Webhooks]
+  Databases & Data:
+    [PostgreSQL, Supabase, SQL, SQLite, Pandas, NumPy]
   Automation & Scraping:
-    [Playwright, Selenium, "Google Apps Script", "Resumable workflows",
-     "Data pipelines", "Amazon SP-API", "eBay API"]
-  Data & Platforms:
-    [Pandas, NumPy, ETL, Docker, Git, Linux, Streamlit, "Telegram Bots"]
+    [Playwright, Selenium, BeautifulSoup, "Google Apps Script", "Data Pipelines"]
+  APIs & Integrations:
+    ["Amazon SP-API", "eBay API", "Google Workspace APIs", "Green API",
+     "Telegram Bots", "Solana APIs"]
+  Business Systems:
+    ["CRM Platforms", "Inventory & Pricing Systems", "Role-Based Access Control",
+     "Audit History", "Operational Dashboards"]
+  AI & Machine Learning:
+    [LLM, "Retrieval-Augmented Generation (RAG)", "AI Agents",
+     "Prompt Engineering", Ollama, Whisper, LightGBM, scikit-learn, NLP,
+     "Model Evaluation"]
+
+# ── مستويات المهارات ───────────────────────────────────────────────────
+# verified = خبرة حقيقية (وزن كامل) · developing = بتتعلمها (جزء من الوزن،
+# وعمرها ما تتقدّم كخبرة) · future = لسه (تتحسب ناقصة).
+# pytest هنا verified: المشروع ده نفسه فيه أكتر من 600 اختبار.
+skill_levels:
+  verified:
+    [Python, FastAPI, "REST APIs", Authentication, Webhooks, PostgreSQL,
+     Supabase, SQL, SQLite, Pandas, NumPy, Playwright, Selenium, BeautifulSoup,
+     "Google Apps Script", "Data Pipelines", LLM, RAG, "AI Agents",
+     "Prompt Engineering", Ollama, Whisper, LightGBM, scikit-learn, NLP,
+     "Model Evaluation", "Google Workspace APIs", "Amazon SP-API", "eBay API",
+     "Green API", "Telegram Bots", "Solana APIs", "CRM Systems",
+     "Role-Based Access Control", pytest]
+  developing:
+    [LangGraph, "Advanced Agentic AI", Docker, AWS, "Cloud Deployment",
+     "CI/CD", "GitHub Actions", "LLM Evaluation", "AI Observability"]
+  future:
+    [Redis, Celery, pgvector, "Hybrid Search", Reranking, Kubernetes,
+     "AWS ECS", "AWS S3", "AWS RDS"]
+  weights: {verified: 1.0, developing: 0.4, future: 0.0}
+
+# نفس المهارة بأسامي تانية — عشان المطابقة ماتفوّتش "Large Language Models"
+skill_synonyms:
+  LLM: ["Large Language Models", "LLMs", "GenAI", "Generative AI"]
+  RAG: ["Retrieval-Augmented Generation", "retrieval augmented generation"]
+  "REST APIs": ["API Integration", "REST API Integration", "RESTful APIs"]
+  "AI Agents": ["Agentic Workflows", "agentic systems", "AI agent"]
+  PostgreSQL: ["Postgres"]
+  "Data Pipelines": ["ETL", "ELT", "data ingestion"]
 
 # ⚠️ اللي مش عندك. المقيّم بيستخدمها عشان مايبالغش.
 not_experienced_with:
@@ -82,206 +115,193 @@ not_experienced_with:
 # فصل مقصود في المسؤولية:
 #   الموديل بيقرر **أنهي** نقط تخص الوظيفة دي
 #   وإنت بتقرر **بأي ترتيب** تظهر لو اتاختارت
-#
-# القارئ بيمسح شركة من فوق لتحت وبيقف عند أول رقم — فالترتيب
-# مش تفصيلة شكلية.
 
 experience:
   - id: exp1
     role: "AI & Automation Engineer"
     company: "BlueBug"
-    period: "02/2026 — Present"
+    period: "02/2026 – Present"
     mode: "Remote"
     bullets:
-      - id: b1
+      - id: b29
         rank: 1
-        text: "Build and own three internal AI and automation products in Python, FastAPI and Supabase, from design to delivery"
+        text: "Build and maintain three internal AI and automation products in Python, FastAPI and Supabase."
         tags: [python, fastapi, supabase, ownership]
-      - id: b2
+      - id: b30
         rank: 2
-        text: "Review-intelligence system tracking 10,000 products, reconciling 800,000 reviews against 1.1M snapshots"
-        tags: [data, scale, pipelines, reconciliation]
-      - id: b3
+        text: "Built a review-intelligence system that tracks about 10,000 products and keeps 800,000 reviews reconciled against 1.1M snapshots, plus a rating model that gets the exact star rating right 80.7% of the time on products it has never seen."
+        tags: [data, scale, pipelines, ml, evaluation]
+      - id: b31
         rank: 3
-        text: "37-feature model predicting the exact displayed star rating 80.7% of the time on unseen products, 0.034 MAE"
-        tags: [ml, lightgbm, evaluation, metrics]
-      - id: b4
-        rank: 4
-        text: "Solana research platform holding dashboard queries at 0.84s against 10+ GB of streamed market data"
-        tags: [performance, data, dashboards, realtime]
-      - id: b5
-        rank: 6
-        text: "Shipped every trading strategy behind paper-trading validation and two independent safety switches before live use"
-        tags: [safety, risk, testing, production]
-      - id: b6
-        rank: 5
-        text: "Resumable scraping workflows with captcha/TOTP handling, account rotation, retry logic and synchronised reporting"
-        tags: [automation, scraping, resilience, playwright]
+        text: "Built a Solana research platform that holds dashboard queries at 0.84 seconds against 10+ GB of data, with every strategy tested on paper first behind two independent safety switches."
+        tags: [performance, data, dashboards, safety, testing]
 
   - id: exp2
-    role: "AI Automation Developer"
-    company: "Upwork (freelance)"
-    period: "06/2024 — Present"
+    role: "AI Automation Developer - Top Rated"
+    company: "Upwork"
+    period: "06/2024 – Present"
     mode: "Remote"
     bullets:
-      - id: b7
+      - id: b32
         rank: 1
-        text: "Delivered 6+ client platforms end to end, from first call to launch — earned Upwork Rising Talent"
+        text: "Delivered 6+ client platforms end to end, from the first call to launch, and earned Upwork Rising Talent."
         tags: [delivery, client-facing, ownership, communication]
-      - id: b8
+      - id: b33
         rank: 2
-        text: "Rebuilt a bilingual field-service CRM: 17,000+ records into 17 secured tables, slowest page 5.6s to 0.56s"
+        text: "Rebuilt a bilingual field-service CRM in Bahrain: moved 17,000+ records into a secured database and cut the slowest page from 5.6 seconds to 0.56."
         tags: [crm, postgres, performance, migration, i18n]
-      - id: b9
+      - id: b34
         rank: 3
-        text: "Inventory and marketplace-pricing platforms across Amazon, eBay and Shopify covering 25,000+ items"
-        tags: [integrations, marketplaces, apis, pricing]
-      - id: b10
-        rank: 5
-        text: "Resumable lead pipeline across 2,662 towns with classification, enrichment, deduplication and QA reporting"
-        tags: [pipelines, scraping, data-quality, resumable]
-      - id: b11
-        rank: 4
-        text: "Wholesale ops platform with multi-format supplier ingestion, GTIN validation and 162 automated tests"
-        tags: [testing, data-validation, transactions, backend]
-      - id: b12
-        rank: 6
-        text: "Turned vague requirements from non-technical clients into shipped systems, owning scope and delivery end to end"
-        tags: [communication, requirements, client-facing, stakeholder]
+        text: "Built inventory and marketplace-pricing platforms across Amazon, eBay and Shopify covering 25,000+ items, plus a lead pipeline covering 2,662 towns that resumes exactly where it stopped."
+        tags: [integrations, marketplaces, apis, pipelines, resumable]
+
+# ── التعليم ────────────────────────────────────────────────────────────
+
+education:
+  - degree: "B.Sc. in Computer and Information Science"
+    school: "Ain Shams University"
+    period: "2020 – 2024"
+    line: "Scientific Computing Department Graduation Project: Data-Driven English Practice App"
+    bullets:
+      - "Processed datasets to simulate conversation and grammar correction."
+      - "Applied data-driven techniques to improve accuracy and feedback."
+      - "Gained experience in data preparation, model fine-tuning, and result analysis."
 
 # ── المشاريع ───────────────────────────────────────────────────────────
+# org = اللي بيتكتب مايل بعد الاسم (BlueBug / Upwork Client / Personal Project)
+# paragraph: true = النقطة بتتعرض فقرة من غير علامة، زي Meeting Copilot
 
 projects:
   - id: proj1
     name: "Freelancer Meeting Copilot"
+    org: "Personal Project"
+    date: "07/2026"
     stack: "Python, React/TypeScript, Tauri, SQLite, Ollama, Whisper"
     url: "https://github.com/El-Sayed-Mustafa/meeting-copilot"
+    paragraph: true
     bullets:
-      - id: b13
+      - id: b35
         rank: 1
-        text: "Whisper transcription and Ollama inference run entirely on the user's machine — no call data leaves the laptop"
-        tags: [llm, local-models, privacy, whisper, ollama]
-      - id: b14
+        text: "A private AI assistant for client calls that runs entirely on the user's own machine, so no call data ever leaves the laptop. Answers come only from that client's own notes, and nothing is treated as a fact until it is confirmed, which keeps the model from inventing details."
+        tags: [llm, rag, local-models, privacy, grounding, whisper, ollama]
+
+  - id: proj4
+    name: "Amazon ASIN & Review Intelligence Platform"
+    org: "BlueBug"
+    stack: "Python, Playwright, Supabase, Google Sheets APIs"
+    url: "https://github.com/El-Sayed-Mustafa/review-pipeline-showcase"
+    bullets:
+      - id: b36
+        rank: 1
+        text: "Built six Amazon scraping and auditing tools for ASIN details, review collection, variation analysis, listing health, and gap detection across multiple marketplaces."
+        tags: [scraping, playwright, tooling, marketplaces]
+      - id: b37
         rank: 2
-        text: "Scoped retrieval answers only from that client's own notes, with grounding controls that refuse unconfirmed claims"
-        tags: [rag, retrieval, grounding, hallucination-control]
-      - id: b15
-        rank: 3
-        text: "Shipped as a cross-platform desktop app on Tauri with a React/TypeScript front end and SQLite storage"
-        tags: [desktop, tauri, typescript, react]
+        text: "Added resumable workflows, captcha/TOTP handling, account rotation, retry logic, and synchronized reporting through Supabase and Google Sheets."
+        tags: [automation, resilience, integrations, sheets]
 
   - id: proj2
     name: "Amazon Rating Prediction & Simulation Tool"
+    org: "BlueBug"
     stack: "LightGBM, Python, Pandas, SQLite, JavaScript"
     url: "https://github.com/El-Sayed-Mustafa/bluebug-rating-showcase"
     bullets:
-      - id: b16
+      - id: b38
         rank: 1
-        text: "Engineered 37 features for a model reaching 80.7% exact-match accuracy, 0.034 MAE on unseen products"
+        text: "Developed a 37-feature LightGBM model to estimate Amazon displayed ratings, achieving 80.7% exact-match accuracy and 0.034 MAE on unseen ASINs."
         tags: [ml, feature-engineering, lightgbm, metrics]
-      - id: b17
+      - id: b39
         rank: 2
-        text: "Interactive tool for rating estimation, review-impact analysis, target simulations and confidence reporting"
+        text: "Built an interactive application for rating estimation, review-impact analysis, target-rating simulations, confidence reporting, and downloadable reports."
         tags: [tooling, simulation, dashboards, product]
 
   - id: proj3
     name: "Solana Market Intelligence & Paper-Trading Platform"
-    stack: "Python, WebSockets, Supabase, Streamlit, ML"
+    org: "BlueBug"
+    stack: "Python, WebSockets, Supabase, Streamlit, Machine Learning"
     url: "https://github.com/El-Sayed-Mustafa/solana-market-bot-showcase"
     bullets:
-      - id: b18
+      - id: b40
         rank: 1
-        text: "Real-time scanner over DexScreener, Birdeye, GeckoTerminal, Helius WebSockets and Jupiter quote feeds"
+        text: "Built a real-time Solana scanner and paper-trading system integrating DexScreener, Birdeye, GeckoTerminal, Helius WebSockets, and Jupiter quotes."
         tags: [realtime, websockets, integrations, apis]
-      - id: b19
+      - id: b41
         rank: 2
-        text: "Token discovery, liquidity and momentum filters, risk controls, backtesting and experiment tracking"
-        tags: [ml, backtesting, risk, experimentation]
-
-  - id: proj4
-    name: "Amazon ASIN & Review Intelligence Platform"
-    stack: "Python, Playwright, Supabase, Google Sheets APIs"
-    url: "https://github.com/El-Sayed-Mustafa/review-pipeline-showcase"
-    bullets:
-      - id: b20
-        rank: 1
-        text: "Six scraping and auditing tools for ASIN details, review collection, listing health and gap detection"
-        tags: [scraping, playwright, tooling, marketplaces]
-      - id: b21
-        rank: 2
-        text: "Synchronised reporting across Supabase and Google Sheets so operators kept working in the tool they already used"
-        tags: [integrations, sheets, operations, reporting]
-
-  - id: proj5
-    name: "Apply Agent"
-    stack: "Python, Supabase, Gemini, GitHub Actions, Telegram, Deno"
-    url: "https://github.com/El-Sayed-Mustafa/apply-agent"
-    bullets:
-      - id: b22
-        rank: 1
-        text: "Job-search system over 17 public ATS and aggregator sources, scoring each role against a structured CV with an LLM"
-        tags: [llm, automation, python, pipelines]
-      - id: b23
-        rank: 2
-        text: "CV tailoring as constrained selection over a closed set of bullet ids — fabricated experience is structurally impossible"
-        tags: [llm, constrained-output, safety, design]
-      - id: b24
-        rank: 3
-        text: "Self-expanding discovery loop resolving company names to ATS endpoints and registering them permanently"
-        tags: [automation, discovery, apis, systems]
-      - id: b25
-        rank: 4
-        text: "Secured a public webhook with a shared secret, chat allowlisting and strict payload validation on every call"
-        tags: [security, webhooks, deno, edge-functions]
-      - id: b26
-        rank: 5
-        text: "258 offline tests, including recorded-fixture contract tests that fail when an upstream API changes shape"
-        tags: [testing, reliability, contract-tests]
+        text: "Implemented token discovery, liquidity and momentum filters, risk controls, backtesting, ML-assisted entry and exit analysis, experiment tracking, and a Streamlit dashboard."
+        tags: [ml, backtesting, risk, experimentation, dashboards]
 
   - id: proj6
-    name: "Bahrain Pest Control CRM"
+    name: "Bahrain Pest Control CRM & Field Operations Platform"
+    org: "Upwork Client"
     stack: "Supabase, PostgreSQL, Apps Script, Green API"
     url: "https://github.com/El-Sayed-Mustafa/pest-control-crm-bahrain"
     bullets:
-      - id: b27
+      - id: b42
         rank: 1
-        text: "17 secured Supabase tables with role-based access control and audit history for a bilingual field-service team"
-        tags: [postgres, rbac, schema-design, i18n]
+        text: "Built a bilingual field-service CRM and migrated 17,000+ records into 17 secured Supabase tables, reducing key server reads from approximately 5.6 seconds to 0.56 seconds."
+        tags: [crm, postgres, rbac, migration, performance, i18n]
+
+  - id: proj8
+    name: "Sync Corp Operations & Marketplace Pricing Platform"
+    org: "Upwork Client"
+    stack: "Python, Supabase, PostgreSQL, Amazon SP-API, eBay"
+    url: "https://github.com/El-Sayed-Mustafa/wholesale-ops-platform"
+    bullets:
+      - id: b43
+        rank: 1
+        text: "Built an inventory and marketplace-pricing platform with multi-format supplier ingestion, GTIN validation, product matching, transaction-safe workflows, and 162 passing automated tests."
+        tags: [integrations, marketplaces, testing, data-validation, backend]
+
+  - id: proj9
+    name: "Victoria Lead Generation & Email Enrichment Pipeline"
+    org: "Upwork Client"
+    stack: "Python, Google Maps, Apify, Web Scraping, Data Enrichment"
+    url: "https://github.com/El-Sayed-Mustafa/victoria-lead-engine"
+    bullets:
+      - id: b44
+        rank: 1
+        text: "Built a resumable scraping and enrichment pipeline covering 2,662 Victoria towns, with lead classification, website and email extraction, deduplication, retry handling, and structured QA reports."
+        tags: [pipelines, scraping, data-quality, resumable, enrichment]
+
+  # مش في سيرة 16 نوفمبر — متعطّلين، مبيتقيّموش ومبيظهروش. متمسحهمش:
+  # ممكن ترجّعهم بـ active: true.
+  - id: proj5
+    active: false
+    name: "Apply Agent"
+    org: "Personal Project"
+    stack: "Python, Supabase, Gemini, GitHub Actions, Telegram, Deno"
+    url: "https://github.com/El-Sayed-Mustafa/apply-agent"
+    bullets: []
 
   - id: proj7
+    active: false
     name: "Wahaca Kitchen Performance Reporting"
+    org: "Upwork Client"
     stack: "Google Apps Script, Sheets"
     url: "https://github.com/El-Sayed-Mustafa/wahaca-kds-dashboard"
-    bullets:
-      - id: b28
-        rank: 1
-        text: "Automated kitchen-performance reporting for a multi-site restaurant group on Google Apps Script and Sheets"
-        tags: [automation, apps-script, reporting, operations]
+    bullets: []
 
-# ── التعليم والشهادات ──────────────────────────────────────────────────
-
-education:
-  - degree: "B.Sc. Computer and Information Science"
-    school: "Ain Shams University"
-    period: "2020 — 2024"
-    department: "Scientific Computing"
-    project: "Graduation Project — Data-Driven English Practice App: processed datasets to simulate conversation and grammar correction, applied data-driven techniques to improve accuracy and feedback, and gained experience in data preparation, model fine-tuning and result analysis."
-    # النسخة المختصرة — للصفحة الواحدة
-    project_short: "Graduation project: data-driven English practice app — conversation simulation and grammar correction"
+# ── الشهادات واللغات ───────────────────────────────────────────────────
 
 certificates:
   - name: "Machine Learning Specialization"
     issuer: "DeepLearning.AI"
     url: "https://www.coursera.org/account/accomplishments/specialization/GGBNJ8VWY4PG"
-  - name: "Natural Language Processing with Classification and Vector Spaces"
-    issuer: "DeepLearning.AI"
-    url: "https://www.coursera.org/account/accomplishments/verify/LCC4ZVSU5R5Z"
   - name: "Advanced SQL Querying"
     issuer: "Maven Analytics"
     url: "https://certificates.mavenanalytics.io/75ee8eba-7a1f-4666-b90f-df4ff6c9ed42"
   - name: "Associate Data Analyst in SQL"
     issuer: "DataCamp"
     url: "https://www.datacamp.com/certificate/DAA0019295316175"
+  - name: "Natural Language Processing with Classification and Vector Spaces"
+    issuer: "DeepLearning.AI"
+    url: "https://www.coursera.org/account/accomplishments/verify/LCC4ZVSU5R5Z"
+
+languages:
+  - name: "Arabic"
+    level: "Native"
+  - name: "English"
+    level: "Professional Proficiency"
 
 # ── اللي بتدوّر عليه ────────────────────────────────────────────────────
 

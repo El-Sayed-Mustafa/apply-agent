@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -79,22 +80,27 @@ RECENT = "r604800"
 
 
 # ── الكروت ──────────────────────────────────────────────────────────────
-
-# الكلاسات مشفّرة، بس `data-occludable-job-id` ثابت — ده اللي
-# لينكدإن بيستخدمه هو نفسه عشان يعرف أنهي كارت ظاهر.
+# شكلين، لإن لينكدإن بيبدّل بينهم:
+#   · القديم (/jobs/search/): `data-occludable-job-id` على الكارت
+#   · الجديد (/jobs/search-results/، نوفمبر 2026): `role=button` و
+#     componentkey = "job-card-component-ref-<رقم الوظيفة>"
+# يوم 13 نوفمبر لينكدإن حوّل البحث القديم للجديد، والقارئ رجّع صفر
+# كروت في الـ8 أبحاث كلهم. الاتنين متقريين دلوقتي.
 JS_CARDS = r"""() => {
   const out = [];
-  document.querySelectorAll('[data-occludable-job-id]').forEach(e => {
-    const a = e.querySelector('a[href*="/jobs/view/"]');
-    if (!a) return;
+  const seen = new Set();
+  const add = (e, id) => {
+    if (!id || seen.has(id)) return;
     const lines = (e.innerText || '').split('\n')
       .map(x => x.trim()).filter(Boolean);
-    out.push({
-      id: e.getAttribute('data-occludable-job-id'),
-      href: (a.getAttribute('href') || '').split('?')[0],
-      lines: lines.slice(0, 8)
-    });
-  });
+    if (lines.length < 2) return;
+    seen.add(id);
+    out.push({id: id, lines: lines.slice(0, 8)});
+  };
+  document.querySelectorAll('[data-occludable-job-id]').forEach(e =>
+    add(e, e.getAttribute('data-occludable-job-id')));
+  document.querySelectorAll('[role="button"][componentkey^="job-card-component-ref-"]').forEach(e =>
+    add(e, (e.getAttribute('componentkey') || '').replace('job-card-component-ref-', '')));
   return out;
 }"""
 
@@ -107,7 +113,7 @@ JS_DESC = r"""() => {
 # لحد ما يتشاف. فبنعدّي على كل كارت عشان يترسم قبل ما نقراه.
 # دي تمريرة في صفحة مفتوحة، مش فتح صفحات.
 JS_RENDER = r"""async () => {
-  const els = [...document.querySelectorAll('[data-occludable-job-id]')];
+  const els = [...document.querySelectorAll('[data-occludable-job-id], [role="button"][componentkey^="job-card-component-ref-"]')];
   for (const e of els) {
     e.scrollIntoView({block: 'center'});
     await new Promise(r => setTimeout(r, 250 + Math.random() * 350));
@@ -117,12 +123,17 @@ JS_RENDER = r"""async () => {
 
 # سطور بتتكرر في كل كارت ومالهاش معنى
 CARD_NOISE = re.compile(
-    r"^(viewed|easy apply|promoted|actively (?:hiring|reviewing)|"
+    r"^(viewed|easy apply|promoted|actively (?:hiring|reviewing)(?: applicants)?|"
     r"be an early applicant|\d+\s*(?:hours?|days?|weeks?|months?)\s*ago|"
+    r"posted .*ago|verified|·|"
+    r"\d+ (?:connections?|school alumni) works? here|"
     r"within the past.*|جديد|تم العرض|التقديم السهل|تمت المشاهدة)$", re.I)
 
 # الموقع بينتهي بنوع العمل بين قوسين
 WORK_TYPE = re.compile(r"\((remote|hybrid|on-?site|عن بعد|هجين|في الموقع)\)", re.I)
+
+# الشكل الجديد بيكتب المسمى مرتين، وأول مرة بعلامة التوثيق
+VERIFIED = re.compile(r"\s*\(verified job\)\s*$", re.I)
 
 
 def parse_card(card: dict) -> dict | None:
@@ -131,12 +142,16 @@ def parse_card(card: dict) -> dict | None:
 
     الشكل: المسمى بيتكرر مرتين (التانية للقارئ الصوتي)، وبعديها
     الشركة، وبعديها الموقع ونوع العمل بين قوسين.
+
+    في الشكل الجديد الموقع ساعات مدينة لوحدها من غير قوسين ولا فاصلة
+    ("Elm Company" ثم "Riyadh") — فلو ملقيناش سطر بنوع عمل أو فاصلة،
+    بنعتبر أول سطر بعد الشركة فيه بلد أو مدينة معروفة هو الموقع.
     """
     lines = [x for x in card["lines"] if not CARD_NOISE.match(x)]
     if len(lines) < 2:
         return None
 
-    title = lines[0]
+    title = VERIFIED.sub("", lines[0]).strip()
     rest = [x for x in lines[1:] if x != title and not x.startswith(title)]
     if not rest:
         return None
@@ -144,6 +159,10 @@ def parse_card(card: dict) -> dict | None:
     # الموقع هو أول سطر فيه نوع عمل أو فاصلة؛ اللي قبله الشركة
     loc_i = next((i for i, x in enumerate(rest)
                   if WORK_TYPE.search(x) or "," in x), None)
+    if loc_i is None:
+        # من التاني: الأول شركة، حتى لو اسمها فيه مدينة (Riyadh Cables)
+        loc_i = next((i for i, x in enumerate(rest)
+                      if i and targeting.detect_country(x)[0]), None)
     if loc_i is None:
         company, location = rest[0], ""
     elif loc_i == 0:
@@ -170,12 +189,28 @@ def parse_card(card: dict) -> dict | None:
     }
 
 
+def with_country(card: dict, searched: str) -> dict:
+    """
+    البحث نفسه محدد بالدولة (geoId)، فلو الكارت كاتب حي أو منطقة
+    بس ("Qesm El Maadi"، "Kuwait City Metropolitan Area")، الدولة
+    معروفة — من غيرها الفلتر كان هيرمي الوظيفة كإنها برّه القايمة.
+    """
+    if targeting.detect_country(card.get("location"))[0]:
+        return card
+    loc = card.get("location") or ""
+    return {**card, "location": f"{loc}, {searched}" if loc else searched}
+
+
 # ── الوصف ───────────────────────────────────────────────────────────────
 
 # اللي بعد دول توصيات ووظايف شبيهة، مش الإعلان
 TAIL = re.compile(
     r"(people also viewed|similar jobs|more jobs|explore collaborative|"
-    r"set alert|وظائف مشابهة|أشخاص شاهدوا أيضًا)", re.I)
+    r"set alert|benefits found in job post|وظائف مشابهة|أشخاص شاهدوا أيضًا)", re.I)
+
+# الصفحة الجديدة بتحط قبل الإعلان أزرار Premium و"People you can reach
+# out to" — فيها أسامي ناس حقيقيين، ملهاش لازمة توصل للموديل.
+ABOUT = re.compile(r"^(about the job|نبذة عن الوظيفة)\s*$", re.I | re.M)
 
 
 def clean_desc(raw: str, title: str) -> str:
@@ -192,6 +227,12 @@ def clean_desc(raw: str, title: str) -> str:
     if i > 0:
         text = text[i:]
 
+    # سطر المسمى وسطر المكان والتاريخ، وبعدين الإعلان على طول
+    m = ABOUT.search(text)
+    if m:
+        head = "\n".join(text[:m.start()].split("\n")[:3]).strip()
+        text = head + "\n\n" + text[m.start():]
+
     m = TAIL.search(text)
     if m and m.start() > 400:
         text = text[:m.start()]
@@ -206,11 +247,34 @@ def config() -> tuple[list[str], list[str]]:
     return cfg.get("keywords") or [], cfg.get("locations") or []
 
 
+# رقم المنطقة في لينكدإن لكل دولة. البحث الجديد بيتجاهل `location=`
+# وبيحطّ مدينة واحدة بنصف قطر 40 كم: "Saudi Arabia" بقت "Riyadh (40 km)"
+# وطلّعت 30 نتيجة، و`geoId` للسعودية كلها طلّع 48 ومعاهم الخبر والجبيل.
+# كل رقم هنا اتجرّب يوم 13 نوفمبر ورجّع وظايف في الدولة دي بس.
+GEO_IDS = {
+    "Saudi Arabia": "100459316",
+    "United Arab Emirates": "104305776",
+    "Egypt": "106155005",
+    "Qatar": "104170880",
+    "Kuwait": "103239229",
+    "Bahrain": "100425729",
+    "Oman": "103619019",
+}
+
+
+def search_url(keyword: str, location: str) -> str:
+    q = urllib.parse.quote
+    gid = GEO_IDS.get(location)
+    if gid:
+        return (f"{BASE}/jobs/search-results/?keywords={q(keyword)}"
+                f"&geoId={gid}&f_TPR={RECENT}")
+    return (f"{BASE}/jobs/search/?keywords={q(keyword)}"
+            f"&location={q(location)}&f_TPR={RECENT}")
+
+
 def search(page, keyword: str, location: str, want: int = PER_SEARCH) -> list[dict]:
     """كروت بحث واحد."""
-    import urllib.parse
-    url = (f"{BASE}/jobs/search/?keywords={urllib.parse.quote(keyword)}"
-           f"&location={urllib.parse.quote(location)}&f_TPR={RECENT}")
+    url = search_url(keyword, location)
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=45_000)
     except Exception as exc:
@@ -235,7 +299,7 @@ def search(page, keyword: str, location: str, want: int = PER_SEARCH) -> list[di
     for c in cards:
         p = parse_card(c)
         if p and not any(x["id"] == p["id"] for x in out):
-            out.append(p)
+            out.append(with_country(p, location))
     return out[:want]
 
 

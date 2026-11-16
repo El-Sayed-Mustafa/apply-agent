@@ -32,6 +32,22 @@ KEY_VARS = ["GEMINI_API_KEY"] + [f"GEMINI_API_KEY_{i}" for i in range(2, 11)]
 
 _DAILY = re.compile(r"PerDay|per day|GenerateRequestsPerDayPerProject", re.I)
 
+# أقصى انتظار لنداء واحد. من غيره النداء بيستنى للأبد: يوم 13 نوفمبر
+# طلب "ping" بتوكن واحد فضل معلّق أكتر من 60 ثانية، والتقييم وقف ربع
+# ساعة عند تاني وظيفة — ومهلة التشغيلة ما بتتفحصش غير بين الوظايف.
+TIMEOUT_MS = int(os.getenv("GEMINI_TIMEOUT_MS", "40000"))
+
+# أخطاء مؤقتة تستاهل إعادة المحاولة. الانتظار اللي خلص من غير رد
+# منها: نفس الطلب بعدها بثواني بيرد في ثانية.
+_TRANSIENT = ("429", "503", "500", "504", "UNAVAILABLE", "DEADLINE_EXCEEDED",
+              "timed out", "Timeout")
+# 504 DEADLINE_EXCEEDED = المهلة خلصت عند جوجل نفسه (المهلة بتتبعت معاه)
+_TIMEOUT = ("timed out", "Timeout", "DEADLINE_EXCEEDED")
+
+
+def is_transient(msg: str) -> bool:
+    return any(c in (msg or "") for c in _TRANSIENT)
+
 
 def keys() -> list[str]:
     """كل المفاتيح الموجودة، بالترتيب، من غير تكرار."""
@@ -81,7 +97,9 @@ class Pool:
     def _client(self, key: str):
         if key not in self._clients:
             from google import genai
-            self._clients[key] = genai.Client(api_key=key)
+            from google.genai import types
+            self._clients[key] = genai.Client(
+                api_key=key, http_options=types.HttpOptions(timeout=TIMEOUT_MS))
         return self._clients[key]
 
     def _run(self, model: str, contents, config):
@@ -103,8 +121,13 @@ class Pool:
                     self._dead.add((key, model))
                     continue
 
+                # الانتظار خلص: الموديل نفسه بطيء دلوقتي، مش المفتاح —
+                # تجربة باقي المفاتيح بتضرب المهلة في 5. اللي فوق يقرر.
+                if any(c in msg for c in _TIMEOUT):
+                    raise
+
                 # مزنوق بالدقيقة → مفتاح تاني أرخص من الانتظار
-                if any(c in msg for c in ("429", "503", "500", "UNAVAILABLE")):
+                if is_transient(msg):
                     continue
 
                 # غلط دائم (مفتاح باطل، طلب غلط) — التدوير مش هيصلّحه

@@ -171,17 +171,29 @@ def test_html_contains_only_chosen_bullets():
     النقط المختارة. معرّف مخترع الحاجز بيشيله — لكن نص مسرّب شكله
     سليم ومحدش ياخد باله.
     """
-    h = render.build_html(tailor.full(), KNOWN, ["b1"], "")
-    assert KNOWN["b1"]["text"] in h
-    assert KNOWN["b2"]["text"] not in h
-    assert KNOWN["b7"]["text"] not in h
+    # التظبيط بيرتّب المشاريع: المختار الأول، والنص كله من cv.yaml.
+    # الخبرة كاملة دايمًا (3 نقط لكل جهة) زي سيرة FlowCV.
+    bullets, _ = tailor.load_catalogue()
+    h = render.build_html(tailor.full(), bullets, ["b44"], "")
+    first = lambda b: " ".join(bullets[b]["text"].split()[:5])
+    assert h.index(first("b44")) < h.index(first("b35"))   # المختار طلع الأول
+    assert first("b29") in h                               # الخبرة كاملة
+    texts = {b["text"] for b in bullets.values()}
+    import html as _h, re as _re
+    shown = [_h.unescape(x) for x in _re.findall(r"<li>(.*?)</li>", h)]
+    cv = tailor.full()
+    edu = {t for e in cv["education"] for t in e["bullets"]}
+    skills = {", ".join(map(str, v)) for v in cv["skills"].values()}
+    assert all(t in texts | edu | skills for t in shown)    # مفيش نص من برّه
 
 
 def test_html_escapes_dangerous_text():
     """اسم شركة فيه < أو & مايكسرش الصفحة."""
-    bad = {"b1": {"text": "Built <script>alert(1)</script> & more",
-                  "parent_id": "exp1", "block": "experience"}}
-    h = render.build_html(tailor.full(), bad, ["b1"], "")
+    import copy
+    cv = copy.deepcopy(tailor.full())
+    cv["projects"][0]["bullets"][0]["text"] = "Built <script>alert(1)</script> & more"
+    bullets, _ = tailor.load_catalogue()
+    h = render.build_html(cv, bullets, [cv["projects"][0]["bullets"][0]["id"]], "")
     assert "<script>" not in h and "&lt;script&gt;" in h
 
 
@@ -210,7 +222,7 @@ def test_filename_survives_missing_fields():
 
 
 @pytest.mark.slow
-def test_pdf_renders_one_page():
+def test_pdf_renders_within_two_pages():
     """الاختبار الوحيد اللي بيشغّل متصفح. بيتخطى لو Chromium مش موجود."""
     playwright = pytest.importorskip("playwright.sync_api")
     bullets, _ = tailor.load_catalogue()
@@ -219,7 +231,7 @@ def test_pdf_renders_one_page():
     except Exception as exc:
         pytest.skip(f"مفيش متصفح: {exc}")
     assert pdf[:4] == b"%PDF"
-    assert render._page_count(pdf) == 1      # الضبط الذاتي شغال
+    assert render._page_count(pdf) <= render.MAX_PAGES   # صفحتين زي FlowCV
 
 
 # ── توازن المشاريع ──────────────────────────────────────────────────────
@@ -294,8 +306,18 @@ def test_inline_lists_have_real_separators():
     الاستخراج — "Arabic (native)English (professional)".
     """
     assert "&nbsp;" in render.SEP, "الفاصل لازم يحتوي مسافة حقيقية"
-    h = render.build_html(tailor.full(), KNOWN, ["b1"], "")
-    for section in ("Certificates", "Languages"):
-        i = h.find(f">{section}<")
-        assert i > 0
-        assert "&nbsp;·&nbsp;" in h[i:i + 900], f"{section} من غير فاصل نصي"
+    # في شكل FlowCV كل شهادة في سطر لوحدها، فمفيش حاجة تتلحم
+    cv = tailor.full()
+    h = render.build_html(cv, KNOWN, ["b1"], "")
+    assert h.count('class="cert"') == len(cv["certificates"])
+    for lang in cv["languages"]:
+        assert lang["name"] in h and lang["level"] in h
+
+
+def test_tailoring_reorders_projects_and_never_hides_the_strong_ones():
+    """Scale، 16 نوفمبر: الموديل ساب Meeting Copilot برّه لوظيفة Applied AI."""
+    bullets, _ = tailor.load_catalogue()
+    order = render.project_order(tailor.full(), bullets, ["b38", "b36"])
+    assert order[:2] == ["proj2", "proj4"]          # المختار الأول
+    assert "proj1" in order                         # ومفيش مشروع اتشال
+    assert "proj5" not in order                     # المتعطّل بس هو اللي برّه

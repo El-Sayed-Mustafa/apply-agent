@@ -125,7 +125,9 @@ def runs(rows: list[dict], now: datetime) -> list[tuple[str, str]]:
                                 "غالبًا حصة Gemini خلصت."))
 
     disc = by.get("discover", [])
-    if disc:
+    if not disc:
+        out.append((YELLOW, "سحب الـATS على GitHub ماخلّصش ولا تشغيلة في 8 أيام."))
+    else:
         age = (now - _ts(disc[-1]["started_at"])).total_seconds() / 3600
         if age > 12:
             out.append((YELLOW, f"سحب الـATS على GitHub ماخلّصش تشغيلة من {age:.0f} ساعة "
@@ -153,6 +155,10 @@ def _tokens(s: str, least: int = 3) -> set[str]:
     return {t for t in re.split(r"[^a-z0-9]+", (s or "").lower()) if len(t) >= least}
 
 
+GENERIC_SLUG = {"ai", "hq", "inc", "io", "co", "app", "group", "tech", "labs",
+                "global", "official", "careers", "team", "llc", "ltd"}
+
+
 def same_company(name: str, slug: str) -> bool:
     """
     المعرّف بيخص الشركة دي؟ يا فيه كلمة مشتركة، يا المعرّف كله مكوّن
@@ -161,8 +167,11 @@ def same_company(name: str, slug: str) -> bool:
     """
     if _tokens(name) & _tokens(slug.replace("-", " ")):
         return True
-    words = _tokens(name, least=2)
+    # كلمات عامة بتلزق في المعرّفات: scaleai لـScale، foodicshq لـFoodics
+    words = _tokens(name, least=2) | GENERIC_SLUG
     flat = re.sub(r"[^a-z0-9]", "", (slug or "").lower())
+    if not any(w in flat for w in _tokens(name, least=2)):
+        return False
     ok = [True] + [False] * len(flat)
     for i in range(1, len(flat) + 1):
         ok[i] = any(ok[i - len(w)] and flat[i - len(w):i] == w

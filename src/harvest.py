@@ -269,7 +269,7 @@ def extract(client, post: dict, models: list[str] | None = None) -> tuple[dict |
                 last = f"{type(exc).__name__}: {msg[:90]}"
                 if _is_daily_quota(msg):
                     break
-                if not any(c in msg for c in ("429", "503", "500", "UNAVAILABLE")):
+                if not genai_pool.is_transient(msg):
                     break
                 time.sleep((_retry_delay(msg) or 2 ** attempt) + 0.5)
                 continue

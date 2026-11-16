@@ -10,6 +10,9 @@ python-dotenv==1.0.1
 # التقييم — الشريحة 3
 google-genai==2.20.0
 
+# Sonnet للتظبيط والـcover letter وأسئلة التقديم (16 نوفمبر)
+anthropic==2.8.0
+
 # الاختبارات
 pytest==8.3.4
 python-docx==1.2.0

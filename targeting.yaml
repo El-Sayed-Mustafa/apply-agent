@@ -127,6 +127,12 @@ roles:
     - "\\b(?:sales|marketing|recruit|legal|finance|counsel)\\b"
     - "account\\s+executive"
     - "\\bintern\\b"
+    # شغل تدريب الموديلات (Prolific، Alignerr…) وبرامج التدريب: كانوا بياخدوا
+    # تقييم عالي لإن المسمى فيه AI. Tamheer برنامج تدريب للسعوديين بس.
+    - "\\bai\\s+train(?:er|ing)\\b"
+    - "\\btamheer\\b"
+    - "\\bgraduate\\s+(?:program|programme|scheme|trainee)\\b"
+    - "\\btrainee\\b"
     - "\\b(?:director|vp|vice\\s+president|head\\s+of)\\b"
 
     # ── أدوار فوق مستواك دلوقتي ──
@@ -207,6 +213,9 @@ job_board:
     - "AI Automation Engineer"
     - "LLM Engineer"
     - "Generative AI Engineer"
+    # من المسميات الأساسية في الخطة: اتضافوا بعد ما بقينا بنقرا الصفحة كاملة
+    - "Applied AI Engineer"
+    - "Forward Deployed Engineer"
   locations:
     - "Saudi Arabia"
     - "United Arab Emirates"

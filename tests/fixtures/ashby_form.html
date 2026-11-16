@@ -1,0 +1,31 @@
+<!doctype html><html><body>
+<!-- نسخة مصغرة من بنية فورم Ashby الحقيقي (16 نوفمبر 2026) للاختبار -->
+<form onsubmit="return false">
+<div class="ashby-application-form-field-entry" data-field-path="_systemfield_name">
+  <label for="_systemfield_name">Name</label><input id="_systemfield_name" name="_systemfield_name" type="text"></div>
+<div class="ashby-application-form-field-entry" data-field-path="_systemfield_email">
+  <label for="_systemfield_email">Email</label><input id="_systemfield_email" name="_systemfield_email" type="email"></div>
+<div class="ashby-application-form-field-entry" data-field-path="_systemfield_resume">
+  <label>Resume</label><input id="_systemfield_resume" type="file"></div>
+<div class="ashby-application-form-field-entry" data-field-path="_systemfield_location">
+  <label>Your Location</label>
+  <input role="combobox" placeholder="Start typing..." oninput="document.getElementById('opts').style.display='block'">
+  <ul id="opts" role="listbox" style="display:none">
+    <li role="option" onclick="document.getElementById('loc').value=this.innerText">Cairo, Cairo, Egypt</li>
+    <li role="option">Cairo, Illinois, United States</li></ul>
+  <input type="hidden" id="loc"></div>
+<div class="ashby-application-form-field-entry" data-field-path="spons">
+  <label>Do you require sponsorship?</label>
+  <div><button type="button" data-option="yes" aria-pressed="false" onclick="this.setAttribute('aria-pressed','true')">Yes</button>
+  <button type="button" data-option="no" aria-pressed="false" onclick="this.setAttribute('aria-pressed','true')">No</button>
+  <input type="checkbox" name="spons" tabindex="-1"></div></div>
+<!-- أسئلة الاختيار: div[data-field-path] من غير الكلاس، زي Cohere -->
+<div data-field-path="hear"><fieldset class="ashby-application-form-input-radio-group">
+  <label>How did you hear about us?</label>
+  <div><span><input type="radio" name="f_hear" id="hear-0"></span><label for="hear-0">Friend</label></div>
+  <div><span><input type="radio" name="f_hear" id="hear-1"></span><label for="hear-1">LinkedIn</label></div>
+</fieldset></div>
+<div class="ashby-application-form-field-entry" data-field-path="why">
+  <label for="why">Why are you interested?</label><textarea id="why" name="why"></textarea></div>
+<button type="button" onclick="document.body.innerHTML='<h1>Thank you for applying!</h1>'">Submit Application</button>
+</form></body></html>

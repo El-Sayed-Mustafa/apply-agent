@@ -193,9 +193,15 @@ def collect(page, want: int = 25, people: list[str] | None = None) -> list[dict]
                 # صياغة في الـJS. أي فشل هنا لازم يتقال.
                 print(f"   ⚠ تعذّرت قراءة الصفحة: {e}")
                 posts, visible = [], 0
+            fresh = [p for p in posts if p.get("age_days") is None
+                     or p["age_days"] <= MAX_AGE_DAYS]
             if visible and not posts:
                 print(f"   · {owner or url}: {visible} منشور ظاهر، "
                       f"ولا واحد ينفع (من غير لينك واضح أو مشاركة لحد تاني)")
+            elif posts and not fresh:
+                newest = min(p["age_days"] for p in posts)
+                print(f"   · {owner or url}: {len(posts)} منشور واضح، "
+                      f"أحدثهم من {newest} يوم — أقدم من {MAX_AGE_DAYS}")
 
             taken = 0
             for p in posts:

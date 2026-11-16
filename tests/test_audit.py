@@ -175,3 +175,17 @@ def test_glued_slugs_of_the_real_company_are_not_flagged():
     assert audit.same_company("siemens digital industries software", "siemenssoftware")
     assert not audit.same_company("moss", "mossconstruct")
     assert not audit.same_company("precursory", "acme-builders")
+
+
+def test_github_poller_with_no_finished_run_at_all_is_reported():
+    """لما مفيش ولا صف discover خالص، الفحص كان بيسكت."""
+    rows = [r for r in full_day() if r["component"] != "discover"]
+    assert "GitHub" in texts(audit.runs(rows, NOW))
+
+
+def test_generic_suffix_on_the_real_company_is_not_flagged():
+    """أول متابعة بعد رجوع الداتابيز: Scale → scaleai، وهي صح."""
+    assert audit.same_company("scale", "scaleai")
+    assert audit.same_company("fde times", "fde-times")
+    assert not audit.same_company("moss", "mossconstruct")
+    assert not audit.same_company("ai", "acmeai")          # كلمة عامة لوحدها مش كفاية

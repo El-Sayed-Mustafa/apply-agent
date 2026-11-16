@@ -5,7 +5,7 @@
   · تحكم كامل في التنسيق (grid، هوامش بالمليمتر، تحكم في الصفحة)
   · نفس الشكل بالظبط على أي جهاز — الخط متضمّن جوّه الملف
   · الـ PDF هو اللي أنظمة التوظيف عايزاه أصلاً
-  · نقدر نضبط الكثافة عشان تتلم في صفحة واحدة
+  · نقدر نضبط الكثافة عشان تتلم في صفحتين بشكل سيرة FlowCV بتاعتك
 
 مفيش أي توليد هنا. كل كلمة جاية من cv.yaml أو من معرّفات اختارها
 الموديل واتفحصت قبل ما توصل. الفرق الوحيد إن الأرقام بتتعلّم بخط
@@ -47,6 +47,15 @@ _STROKE = {
 }
 
 _FILL = {
+    # نسخ مصمتة لسطر التواصل — زي أيقونات FlowCV
+    "mail_f": 'M1.5 3h13a1 1 0 011 1v.3L8 9 .5 4.3V4a1 1 0 011-1z'
+              'M.5 5.6l7.2 4.5a.6.6 0 00.6 0l7.2-4.5V12a1 1 0 01-1 1h-13'
+              'a1 1 0 01-1-1z',
+    "phone_f": 'M3.7 1.2l2.1-.5a1 1 0 011.1.6l1 2.4a1 1 0 01-.3 1.1L6.3 5.9'
+               'a9 9 0 003.8 3.8l1.1-1.3a1 1 0 011.1-.3l2.4 1a1 1 0 01.6 1.1'
+               'l-.5 2.1a1 1 0 01-1 .8A12.2 12.2 0 012.9 2.2a1 1 0 01.8-1z',
+    "pin_f": 'M8 .8a5.2 5.2 0 00-5.2 5.2C2.8 10 8 15.2 8 15.2S13.2 10 13.2 6'
+             'A5.2 5.2 0 008 .8zm0 7.2a2 2 0 110-4 2 2 0 010 4z',
     "shield": 'M8 .9L2.2 3v4.4c0 3.6 2.5 6.9 5.8 7.7 3.3-.8 5.8-4.1 5.8-7.7V3z'
               'm-.7 10.4L4.9 8.9l1.1-1.1 1.3 1.3 3.4-3.4 1.1 1.1z',
     "linkedin": 'M13.6 0H2.4A2.4 2.4 0 000 2.4v11.2A2.4 2.4 0 002.4 16h11.2'
@@ -81,7 +90,7 @@ def icon(name: str) -> str:
         return (f'<svg class="ic fill" viewBox="0 0 16 16" aria-hidden="true">'
                 f'<path d="{_FILL[name]}"/></svg>')
     if name in _STROKE:
-        return (f'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true">'
+        return (f'<svg class="ic line" viewBox="0 0 16 16" aria-hidden="true">'
                 f'{_STROKE[name]}</svg>')
     return ""
 
@@ -147,176 +156,210 @@ def _bullets(ids: list[str], bullets: dict) -> str:
 
 
 # ── الأقسام ─────────────────────────────────────────────────────────────
+#
+# الشكل منقول من سيرة FlowCV (2026-11-16) حتة حتة. الأرقام مش بتتعلّم
+# بخط أعرض هنا عن قصد: سيرتك الأصلية مش بتعلّمها، والمطلوب نفس الشكل.
+
+# أيقونة "لينك خارجي" الصغيرة جنب اسم المشروع والشهادة
+EXT = ('<svg class="ext" viewBox="0 0 16 16" aria-hidden="true">'
+       '<path d="M9.5 2.5h4v4"/><path d="M13.5 2.5L7.5 8.5"/>'
+       '<path d="M12 9.5v3.5a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1h3.5"/>'
+       '</svg>')
+
+
+def _item(svg: str, html_: str) -> str:
+    return f'<span class="item">{svg}{html_}</span>'
+
 
 def _header_meta(contact: dict, profile: dict) -> str:
-    bits = []
+    """سطرين زي FlowCV: التواصل، وبعدين الملاحظة واللينكات."""
+    first, second = [], []
     if contact.get("email"):
-        bits.append(icon("mail")
-                    + link(contact["email"], f"mailto:{contact['email']}"))
+        first.append(_item(icon("mail_f"),
+                           link(contact["email"], f"mailto:{contact['email']}")))
     if contact.get("phone"):
-        bits.append(icon("phone")
-                    + link(contact["phone"], f"tel:{contact['phone']}"))
+        first.append(_item(icon("phone_f"),
+                           link(contact["phone"], f"tel:{contact['phone']}")))
     if contact.get("location"):
-        bits.append(icon("pin") + esc(contact["location"]))
+        first.append(_item(icon("pin_f"), esc(contact["location"])))
     if profile.get("notes") and profile.get("show_notes"):
-        bits.append(icon("shield") + esc(profile["notes"]))
+        second.append(_item(icon("shield"), esc(profile["notes"])))
     for label, url in (contact.get("links") or {}).items():
-        bits.append(icon(LINK_ICONS.get(label.lower(), "link"))
-                    + link(label, url))
-    return SEP.join(bits)
+        second.append(_item(icon(LINK_ICONS.get(label.lower(), "link")),
+                            link(label, url)))
+    return "".join(first) + ("<br>" if first and second else "") + "".join(second)
 
 
-def _experience(cv: dict, picked: dict, order: dict, bullets: dict) -> str:
-    rows = [e for e in (cv.get("experience") or []) if picked.get(e.get("id"))]
-    if not rows:
-        return ""
-    rows.sort(key=lambda e: min(order[b] for b in picked[e["id"]]))
-    out = []
-    for e in rows:
-        when = "  |  ".join(filter(None, [e.get("period"), e.get("mode")]))
-        # article واحد فيه العنوان والنقط — مايتفصلوش لا بصريًا
-        # ولا في ترتيب النص جوّه الملف
-        out.append(
-            '<article class="block"><div class="head">'
-            f'<div><span class="what">{esc(e.get("role"))}</span>'
-            f'<span class="where">, {esc(e.get("company"))}</span></div>'
-            f'<div class="when">{esc(when)}</div></div>'
-            + _bullets(picked[e["id"]], bullets) + "</article>")
-    return "<section><h2>Experience</h2>" + "".join(out) + "</section>"
+def _when(*parts) -> str:
+    bits = [esc(p) for p in parts if p]
+    return '<span class="bar">|</span>'.join(bits)
 
 
-def _projects(cv: dict, picked: dict, order: dict, bullets: dict) -> str:
-    rows = [p for p in (cv.get("projects") or []) if picked.get(p.get("id"))]
-    if not rows:
-        return ""
-    rows.sort(key=lambda p: min(order[b] for b in picked[p["id"]]))
-    out = []
-    for p in rows:
-        out.append(
-            '<article class="block"><div class="head">'
-            f'<div class="what">{link(p.get("name"), p.get("url"))}</div>'
-            "</div>"
-            + (f'<div class="stack">{esc(p.get("stack"))}</div>'
-               if p.get("stack") else "")
-            + _bullets(picked[p["id"]], bullets) + "</article>")
-    return "<section><h2>Selected Projects</h2>" + "".join(out) + "</section>"
+def _ul(texts: list[str]) -> str:
+    items = "".join(f"<li>{esc(t)}</li>" for t in texts if t)
+    return f"<ul>{items}</ul>" if items else ""
 
 
-def _skills(cv: dict) -> str:
+def _experience(cv: dict) -> str:
     """
-    عمود واحد، واللابل جوّه نفس تدفق النص.
+    الخبرة كاملة دايمًا، بترتيب rank. هي 3 نقط لكل جهة في سيرتك —
+    الشيل منها بيخلي الخبرة تبان أقل من حقيقتها، والتظبيط بيشتغل
+    على المشاريع.
+    """
+    out = []
+    for e in (cv.get("experience") or []):
+        if e.get("active") is False:
+            continue
+        bs = sorted(e.get("bullets") or [], key=lambda b: b.get("rank", 99))
+        out.append(
+            '<article class="block"><div class="head">'
+            f'<div><span class="what">{esc(e.get("role"))},</span> '
+            f'<span class="where">{esc(e.get("company"))}</span></div>'
+            f'<div class="when">{_when(e.get("period"), e.get("mode"))}</div>'
+            "</div>" + _ul([b.get("text") for b in bs]) + "</article>")
+    return ("<section><h2>Experience</h2>" + "".join(out) + "</section>"
+            if out else "")
 
-    مرّينا على شكلين وقعوا في نفس الفخ:
-      · grid من عمودين  → الاستخراج بيلحم اليمين بالشمال سطر بسطر
-      · لابل في عمود جنبه → اللابل نفسه بيتلف ("Automation &" /
-        "Scraping") فيتلحم بالقيم
 
-    الحل: كل مجموعة فقرة واحدة، اللابل أول الكلام. الاستخراج بيطلع
-    سطر نضيف مهما كان الطول.
+def _education(cv: dict) -> str:
+    out = []
+    for e in (cv.get("education") or []):
+        out.append(
+            '<article class="block"><div class="head">'
+            f'<div><span class="what">{esc(e.get("degree"))},</span> '
+            f'<span class="where">{esc(e.get("school"))}</span></div>'
+            f'<div class="when">{esc(e.get("period"))}</div></div>'
+            + (f'<div>{esc(e["line"])}</div>' if e.get("line") else "")
+            + _ul(e.get("bullets") or []) + "</article>")
+    return ("<section><h2>Education</h2>" + "".join(out) + "</section>"
+            if out else "")
+
+
+def _skills(cv: dict, order: list[str] | None = None) -> str:
+    """
+    عمودين زي FlowCV. `order` بيقدّم المجموعات الأقرب للوظيفة؛ من غيره
+    ترتيب cv.yaml.
     """
     skills = {k: v for k, v in (cv.get("skills") or {}).items() if v}
     if not skills:
         return ""
-    rows = "".join(
-        f'<div class="srow"><b class="slabel">{esc(k)}</b>&nbsp;&nbsp;'
-        f'{esc(", ".join(str(x) for x in v))}</div>'
-        for k, v in skills.items())
-    return f'<section><h2>Skills</h2><div class="skills">{rows}</div></section>'
+    names = [n for n in (order or []) if n in skills]
+    names += [n for n in skills if n not in names]
+    groups = "".join(
+        f'<div class="group"><div class="what">{esc(n)}</div>'
+        + _ul([", ".join(str(x) for x in skills[n])]) + "</div>"
+        for n in names)
+    return f'<section><h2>Skills</h2><div class="skills">{groups}</div></section>'
 
 
-def _education(cv: dict) -> str:
-    rows = []
-    for e in (cv.get("education") or []):
-        rows.append(
-            '<article class="block"><div class="head">'
-            f'<div><span class="what">{esc(e.get("degree"))}</span>'
-            f'<span class="where">, {esc(e.get("school"))}</span></div>'
-            f'<div class="when">{esc(e.get("period"))}</div></div></article>')
-        tail = " · ".join(filter(None, [e.get("department"),
-                                        e.get("project_short")]))
-        if tail:
-            rows.append(f'<div class="inline">{emphasise(tail)}</div>')
-    return ("<section><h2>Education</h2>" + "".join(rows) + "</section>"
-            if rows else "")
+def _project(p: dict) -> str:
+    name = (f'<span class="what">{link(p.get("name"), p.get("url"))}</span>'
+            + (EXT if p.get("url") else ""))
+    sub = " | ".join(esc(x) for x in (p.get("org"), p.get("stack")) if x)
+    if p.get("date"):
+        head = (f'<div class="head"><div>{name}</div>'
+                f'<div class="when">{esc(p["date"])}</div></div>'
+                + (f'<div class="sub">{sub}</div>' if sub else ""))
+    else:
+        head = f'<div class="inl">{name}{", " if sub else ""}<span class="sub">{sub}</span></div>'
+    bs = sorted(p.get("bullets") or [], key=lambda b: b.get("rank", 99))
+    if p.get("paragraph"):
+        body = "".join(f"<div>{esc(b.get('text'))}</div>" for b in bs)
+    else:
+        body = _ul([b.get("text") for b in bs])
+    return f'<article class="block">{head}{body}</article>'
+
+
+def _projects(cv: dict, picked: list[str]) -> str:
+    by_id = {p.get("id"): p for p in (cv.get("projects") or [])
+             if p.get("active") is not False}
+    rows = [by_id[i] for i in picked if i in by_id]
+    return ("<section><h2>Projects</h2>" + "".join(_project(p) for p in rows)
+            + "</section>" if rows else "")
 
 
 def _certificates(cv: dict) -> str:
-    """
-    متصلة في تدفق واحد بفواصل نقطية بمسافات حقيقية.
-
-    الشكل الأول (سطر لكل شهادة) كان بيسيب 60% من عرض السطر فاضي ×4.
-    والشكل قبله كان بيلتزق في الاستخراج لأن الفاصل كان padding في
-    الـ CSS — والـ padding بيختفي وقت الاستخراج.
-
-    الحل: نقطة بمسافتين حقيقيتين (&nbsp;) حواليها. بتفضل موجودة في
-    النص المستخرج، والسطر بيتملى.
-    """
-    items = []
+    rows = []
     for c in (cv.get("certificates") or []):
         if isinstance(c, str):
-            items.append(esc(c))
+            rows.append(f'<div class="cert"><span class="what">{esc(c)}</span></div>')
             continue
-        items.append(link(c.get("name"), c.get("url"))
-                     + (f'<span class="by"> — {esc(c["issuer"])}</span>'
-                        if c.get("issuer") else ""))
-    if not items:
-        return ""
-    return ('<section><h2>Certificates</h2>'
-            f'<div class="inline">{SEP.join(items)}</div></section>')
+        rows.append(
+            f'<div class="cert"><span class="what">{link(c.get("name"), c.get("url"))}</span>'
+            + (EXT if c.get("url") else "")
+            + (f" — {esc(c['issuer'])}" if c.get("issuer") else "") + "</div>")
+    return ("<section><h2>Certificates</h2>" + "".join(rows) + "</section>"
+            if rows else "")
 
 
 def _languages(cv: dict) -> str:
-    langs = (cv.get("profile") or {}).get("languages") or []
+    langs = cv.get("languages") or []
     if not langs:
         return ""
-    # تدفق نصي واحد بفاصل حقيقي — مش flex بـ gap.
-    # الـ gap مسافة بصرية مش نص، فالاستخراج بيطلّع
-    # "Arabic (native)English (professional)" ملزوقين.
-    return ('<section><h2>Languages</h2>'
-            f'<div class="inline">{SEP.join(esc(x) for x in langs)}</div>'
-            "</section>")
+    cells = "".join(
+        f'<div><span class="what">{esc(x.get("name"))}</span>{esc(x.get("level"))}</div>'
+        if isinstance(x, dict) else f'<div><span class="what">{esc(x)}</span></div>'
+        for x in langs)
+    return f'<section><h2>Languages</h2><div class="langs">{cells}</div></section>'
 
 
 # ── البناء ──────────────────────────────────────────────────────────────
 
+def project_order(cv: dict, bullets: dict, chosen: list[str]) -> list[str]:
+    """
+    كل المشاريع النشطة، والأقرب للوظيفة الأول.
+
+    المختارة بترتيب اختيار الموديل، والباقي بعدها بترتيب cv.yaml. التظبيط
+    بيرتّب ومبيشيلش: أول تجربة حقيقية (Applied AI Engineer في Scale) الموديل
+    ساب Meeting Copilot برّه — أقوى دليل عندك على LLM وRAG. الشيل بيحصل
+    بس في `build` لو السيرة عدّت صفحتين، ومن آخر القايمة.
+    """
+    active = [p.get("id") for p in (cv.get("projects") or [])
+              if p.get("active") is not False]
+    out: list[str] = []
+    for b in chosen:
+        meta = bullets.get(b) or {}
+        pid = meta.get("parent_id")
+        if meta.get("block") == "projects" and pid in active and pid not in out:
+            out.append(pid)
+    return out + [p for p in active if p not in out]
+
+
 def build_html(cv: dict, bullets: dict, chosen: list[str],
-               headline: str = "", summary: str = "") -> str:
+               headline: str = "", summary: str = "",
+               projects: list[str] | None = None,
+               skill_order: list[str] | None = None) -> str:
     contact = cv.get("contact") or {}
     profile = cv.get("profile") or {}
 
-    order = {b: i for i, b in enumerate(chosen)}
-    picked: dict[str, list[str]] = {}
-    for b in chosen:
-        meta = bullets.get(b)
-        if meta:
-            picked.setdefault(meta.get("parent_id", ""), []).append(b)
-
     body = ""
-    text = summary or profile.get("summary_short") or profile.get("summary", "")
+    text = summary or profile.get("summary") or profile.get("summary_short", "")
     if text:
         clean = re.sub(r"\s+", " ", text).strip()
         body += ('<section><h2>Summary</h2>'
-                 f'<div class="summary">{emphasise(clean)}</div></section>')
-    body += _experience(cv, picked, order, bullets)
-    body += _projects(cv, picked, order, bullets)
-    body += _skills(cv)
+                 f'<div class="summary">{esc(clean)}</div></section>')
+    body += _experience(cv)
     body += _education(cv)
+    body += _skills(cv, skill_order)
+    body += _projects(cv, projects if projects is not None
+                      else project_order(cv, bullets, chosen))
     body += _certificates(cv)
     body += _languages(cv)
 
     return (_template()
             .replace("__NAME__", esc(contact.get("name")))
-            # العنوان من cv.yaml دايمًا. الموديل كان بيغيّره كل مرة
-            # ("Product AI Engineer") وده بيضيّق تصنيفك عند الـ recruiter
-            # من غير داعي — والعنوان الثابت بيبني هوية واحدة.
+            # العنوان من profile.title. في التقديم (src/customize.py) بيتغيّر
+            # لعنوان قريب من الوظيفة بعد الفحص؛ في غير كده بتاع cv.yaml.
             .replace("__ROLE__", esc(profile.get("title")))
             .replace("__META__", _header_meta(contact, profile))
             .replace("__BODY__", body))
 
 
-PDF_OPTS = dict(format="A4", print_background=True,
-                margin={"top": "9mm", "bottom": "9mm",
-                        "left": "10mm", "right": "10mm"})
+# الهوامش في @page جوّه القالب — هنا صفر عشان مايتضاعفوش
+PDF_OPTS = dict(format="A4", print_background=True, prefer_css_page_size=True)
+
+MAX_PAGES = 2
+MIN_PROJECTS = 3
 
 
 def _page_count(pdf: bytes) -> int:
@@ -325,20 +368,17 @@ def _page_count(pdf: bytes) -> int:
 
 
 def build(cv: dict, bullets: dict, chosen: list[str],
-          headline: str = "", summary: str = "") -> BytesIO:
+          headline: str = "", summary: str = "",
+          skill_order: list[str] | None = None) -> BytesIO:
     """
-    رجّع PDF من صفحة واحدة، مليانة.
+    رجّع PDF من صفحتين بحد أقصى، بشكل سيرة FlowCV.
 
-    المستند بيضبّط نفسه: بيبدأ بكل النقط المختارة، ولو طلع صفحتين
-    بيشيل الأضعف (آخر واحدة في ترتيب الأهمية) ويعيد. بيقف أول ما
-    يتلم في صفحة.
-
-    كده الصفحة بتطلع مليانة دايمًا مهما كان طول النقط — من غير ما
-    نظبّط عدد ثابت بيبقى قليل مرة وكتير مرة.
+    لو طلع أطول، بيشيل آخر مشروع (الأبعد عن الوظيفة) ويعيد، لحد ما
+    يتلم أو يوصل لـ MIN_PROJECTS.
     """
     from playwright.sync_api import sync_playwright
 
-    ids = list(chosen)
+    projects = project_order(cv, bullets, chosen)
     pdf = b""
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -347,15 +387,17 @@ def build(cv: dict, bullets: dict, chosen: list[str],
             browser = pw.chromium.launch()
             page = browser.new_page()
             try:
-                while ids:
-                    f.write_text(build_html(cv, bullets, ids, headline, summary),
+                while True:
+                    f.write_text(build_html(cv, bullets, chosen, headline,
+                                            summary, projects, skill_order),
                                  encoding="utf-8")
                     page.goto(f.as_uri())
                     page.emulate_media(media="print")
                     pdf = page.pdf(**PDF_OPTS)
-                    if _page_count(pdf) <= 1 or len(ids) <= 4:
+                    if (_page_count(pdf) <= MAX_PAGES
+                            or len(projects) <= MIN_PROJECTS):
                         break
-                    ids.pop()          # شيل الأضعف وحاول تاني
+                    projects.pop()      # الأبعد عن الوظيفة
             finally:
                 browser.close()
 
@@ -363,7 +405,9 @@ def build(cv: dict, bullets: dict, chosen: list[str],
 
 
 def filename(job: dict) -> str:
-    parts = [job.get("company_name") or "", job.get("title") or ""]
+    # منشور لينكدإن: company_name هو اسم اللي نشر (ريكروتر غالبًا)، مش الشركة
+    company = "" if job.get("ats") == "linkedin_post" else job.get("company_name") or ""
+    parts = [company, job.get("title") or ""]
     slug = re.sub(r"[^\w\s-]", "", " ".join(parts))
     slug = re.sub(r"\s+", "-", slug.strip())[:60].strip("-")
     return f"Elsayed-Mustafa-{slug or 'CV'}.pdf"

@@ -25,9 +25,20 @@ const db = createClient(
 
 // قرار على وظيفة: بيكتب status
 const DECIDE: Record<string, { status: string; label: string; toast: string }> = {
+  // a = الزرار القديم "قدّمت بنفسي" — بيفضل شغال للرسايل اللي اتبعتت قبل الدفعة 2
   a: { status: "applied", label: "✅ قدّمت", toast: "اتسجّل — بالتوفيق" },
   s: { status: "skipped", label: "❌ مش مناسبة", toast: "اتسجّل" },
   l: { status: "later", label: "🕐 بعدين", toast: "اتأجّلت" },
+  // الدفعة 2: "قدّم" = جهّز واملا الفورم. مش إرسال — الإرسال موافقة تانية.
+  p: { status: "approved", label: "✅ هيتجهّز", toast: "هيتجهّز في التشغيلة الجاية، وهبعتلك الفورم قبل الإرسال" },
+  v: { status: "saved", label: "💾 اتحفظت", toast: "اتحفظت" },
+};
+
+// الموافقة على الإرسال. الرقم هنا id طلب الموافقة (approval_requests) مش
+// job_id — فضغطة على رسالة قديمة بتتفحص: لسه pending؟ ما انتهتش؟
+const SUBMIT: Record<string, { status: string; label: string; toast: string }> = {
+  ys: { status: "approved", label: "📤 هيتبعت", toast: "هيتبعت في خلال نص ساعة، وهبعتلك صورة التأكيد" },
+  yn: { status: "rejected", label: "🛑 اتلغى", toast: "مش هيتبعت" },
 };
 
 // رد على سؤال "خلّصت تقديم؟": بيكتب confirmed
@@ -85,6 +96,22 @@ Deno.serve(async (req) => {
     return new Response("bad json", { status: 400 });
   }
 
+  // ── رد نصي على سؤال من أسئلة التقديم ──
+  // نفس القفل على المحادثة. بنحفظ النص بس — التقديم هو اللي يقرر يعمل
+  // بيه إيه، ومفيش أي نص من هنا بيتنفّذ كأمر.
+  const msg = update?.message;
+  if (msg && !update?.callback_query) {
+    if (String(msg.chat?.id ?? "") === ALLOWED_CHAT && typeof msg.text === "string"
+        && msg.reply_to_message?.message_id) {
+      await db.from("tg_messages").insert({
+        message_id: msg.message_id,
+        reply_to_id: msg.reply_to_message.message_id,
+        text: msg.text.slice(0, 2000),
+      });
+    }
+    return new Response("ok");
+  }
+
   const cq = update?.callback_query;
   if (!cq) {
     // تحديث مش ضغطة زرار (رسالة عادية مثلاً). بنرد 200 عشان تليجرام
@@ -118,7 +145,8 @@ Deno.serve(async (req) => {
   const confirm = CONFIRM[key];
   const outcome = OUTCOME[key];
   const comment = COMMENT[key];
-  const action = decide ?? confirm ?? outcome ?? comment;
+  const submit = SUBMIT[key];
+  const action = decide ?? confirm ?? outcome ?? comment ?? submit;
 
   // مفتاح مش معروف — نتجاهل من غير ما نلمس الداتابيز
   if (!action) {
@@ -127,6 +155,29 @@ Deno.serve(async (req) => {
   }
 
   const now = new Date().toISOString();
+
+  // ── موافقة الإرسال: الرقم id طلب الموافقة ──
+  // التحديث مشروط على status = pending و expires_at > الوقت ده. لو مفيش
+  // صف اتحدّث، يبقى الطلب انتهى أو اتاخد فيه قرار — والضغطة دي مالهاش أثر.
+  if (submit) {
+    const { data: done, error: e3 } = await db.from("approval_requests")
+      .update({ status: submit.status, decided_at: now })
+      .eq("id", jobId).eq("kind", "submit").eq("status", "pending")
+      .gt("expires_at", now)
+      .select("id");
+    const ok = !e3 && (done?.length ?? 0) === 1;
+    await tg("answerCallbackQuery", {
+      callback_query_id: cq.id,
+      text: ok ? submit.toast : "الطلب ده انتهى — مش هيتبعت حاجة",
+      show_alert: !ok,
+    });
+    await tg("editMessageReplyMarkup", {
+      chat_id: chatId, message_id: cq.message.message_id,
+      reply_markup: { inline_keyboard: [[{ text: ok ? submit.label : "⌛ انتهى",
+                                           callback_data: "x" }]] },
+    });
+    return new Response("ok");
+  }
 
   // الكومنتات جدول تاني والرقم id بتاعه — مش job_id
   if (comment) {

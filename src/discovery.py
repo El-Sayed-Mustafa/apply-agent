@@ -32,7 +32,9 @@ PROBES = {
     "lever":      "https://api.lever.co/v0/postings/{t}?mode=json",
     "ashby":      "https://api.ashbyhq.com/posting-api/job-board/{t}",
     "workable":   "https://apply.workable.com/api/v1/widget/accounts/{t}",
-    "recruitee":  "https://{t}.recruitee.com/api/offers/",
+    # recruitee مش هنا: اتقفل في adapters.RETIRED يوم 31 أغسطس (80 وظيفة،
+    # صفر مؤهلة). الاكتشاف فضل يسجّل شركات عليه، فكل تشغيلة GitHub كانت
+    # بتحاول تسحب منهم وتفشل — 55 فشل في كل مرة.
 }
 
 PROBE_TIMEOUT = 8
@@ -134,10 +136,24 @@ def sync_seeds(client, companies: list[dict]) -> int:
 
 
 def active_companies(client) -> list[dict]:
-    rows = client.table("companies").select("name,ats,token,tier") \
-        .eq("status", "active").not_.is_("token", "null").execute().data
+    """
+    الشركات اللي بنسحب منها — بالصفحات، ومن غير الأنظمة المقفولة.
+
+    بالصفحات لإن PostgREST بيرجّع 1000 صف بحد أقصى من غير ما يقول؛ السجل
+    فيه 671 شركة نشطة (16 نوفمبر) وبيكبر كل تشغيلة.
+    """
+    from .adapters import RETIRED
+    rows, start = [], 0
+    while True:
+        page = (client.table("companies").select("name,ats,token,tier")
+                .eq("status", "active").not_.is_("token", "null")
+                .order("name").range(start, start + 999).execute().data)
+        rows += page
+        if len(page) < 1000:
+            break
+        start += 1000
     return [{"name": r["name"], "ats": r["ats"], "token": r["token"],
-             "tier": r["tier"]} for r in rows]
+             "tier": r["tier"]} for r in rows if r["ats"] not in RETIRED]
 
 
 def known_names(client) -> set[str]:
