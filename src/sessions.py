@@ -60,7 +60,11 @@ def open_sites(names: list[str]) -> None:
         closed = []
         ctx.on("close", lambda: closed.append(1))
         while not closed and ctx.pages:
-            ctx.pages[0].wait_for_timeout(2000)
+            try:
+                ctx.pages[0].wait_for_timeout(2000)
+            except Exception:              # التاب أو الشباك اتقفل — ده العادي
+                if not ctx.pages:
+                    break
         try:
             ctx.close()
         except Exception:

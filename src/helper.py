@@ -30,7 +30,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import ashby, prepare
+from . import ats, prepare
 
 PORT = int(os.getenv("HELPER_PORT", "8765"))
 TOKEN_FILE = Path("state/helper_token")
@@ -52,8 +52,11 @@ def token() -> str:
 
 
 def find_state(page_url: str, root: Path | None = None) -> tuple[int, dict] | None:
-    """الوظيفة اللي صفحتها مفتوحة: نفس الشركة ونفس رقم الإعلان على Ashby."""
-    want = ashby.parse_url(page_url)
+    """
+    الوظيفة اللي صفحتها مفتوحة: نفس الموقع ونفس رقم الإعلان — من أي لينك
+    ليه (صفحة البورد، الـembed، /apply).
+    """
+    want = ats.posting_key(page_url)
     if not want:
         return None
     root = root or prepare.ROOT
@@ -62,7 +65,7 @@ def find_state(page_url: str, root: Path | None = None) -> tuple[int, dict] | No
             st = json.loads(f.read_text(encoding="utf-8"))
         except Exception:
             continue
-        if ashby.parse_url(st.get("url")) == want:
+        if ats.posting_key(st.get("url"), st.get("company")) == want:
             return int(f.parent.name), st
     return None
 
@@ -86,7 +89,8 @@ def build_pack(jid: int, st: dict, job: dict | None = None) -> dict:
             continue
         answers[f["path"]] = v
     job = job or {}
-    return {"job": {"id": jid, "title": job.get("title") or st.get("title") or f"#{jid}",
+    return {"site": st.get("site", "ashby"),
+            "job": {"id": jid, "title": job.get("title") or st.get("title") or f"#{jid}",
                     "company": job.get("company_name") or ""},
             "fields": [{k: f.get(k) for k in ("path", "type", "title", "required", "options")}
                        for f in st.get("fields") or []],

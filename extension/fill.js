@@ -1,27 +1,55 @@
-// ملء فورم Ashby من الإجابات اللي السيستم جهّزها.
+// ملء فورم التقديم من الإجابات اللي السيستم جهّزها: Ashby و Greenhouse و Lever.
 // بيشتغل جوّه كروم بتاعك، والإرسال دايمًا ضغطتك إنت: مفيش هنا أي ضغط
 // على Submit.
 //
-// نفس منطق src/ashby.py (_fill_one)، بس بـJS في الصفحة نفسها:
-//   · الخانات النصية: الـsetter الأصلي + input/change، عشان React يحس بالتغيير
-//   · Yes/No: button[data-option=yes|no]
-//   · الاختيارات: الـlabel بنفس النص، أو combobox
-//   · الموقع: نكتب المدينة ونختار الاختيار اللي فيه Egypt
-//   · السيرة: DataTransfer بالملف نفسه
+// الحقل بيتلاقي حسب الموقع (pack.site):
+//   · ashby       الـcontainer: [data-field-path="<path>"]
+//   · greenhouse  الـid نفسه اسم الحقل في الـAPI (first_name، question_123…)
+//   · lever       الـname (name، urls[LinkedIn]، cards[<uuid>][field0]…)
+// والملء نفسه واحد:
+//   · نص: الـsetter الأصلي + input/change، عشان React يحس بالتغيير
+//   · Yes/No: button[data-option] (Ashby) أو checkbox
+//   · اختيار: <select> عادي، أو radio/checkbox، أو label بنفس النص، أو combobox
+//   · الموقع: نكتب المدينة ونختار اللي فيه Egypt (Lever بيكتبها "EGY")
+//   · ملف: DataTransfer بالملف نفسه
 (function (root) {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const norm = (s) => (s || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const EGYPT = /egypt|\begy\b/i;
 
-  function box(doc, path) {
-    return doc.querySelector('[data-field-path="' + CSS.escape(path) + '"]');
+  function q(s) {
+    return '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+  }
+
+  function locate(doc, site, path) {
+    if (site === "greenhouse") {
+      const el = doc.getElementById(path) ||
+        doc.querySelector("[name=" + q(path) + "], [name=" + q(path + "[]") + "]");
+      if (!el) return null;
+      const box = el.closest("fieldset, .field-wrapper, .select, .file-upload, .text-input-wrapper") ||
+        el.parentElement;
+      return { el: el, box: box };
+    }
+    if (site === "lever") {
+      const el = doc.querySelector("[name=" + q(path) + "]");
+      if (!el) return null;
+      return { el: el, box: el.closest("li.application-question, .application-field") || el.parentElement };
+    }
+    const box = doc.querySelector("[data-field-path=" + q(path) + "]");
+    return box ? { el: null, box: box } : null;
   }
 
   function setValue(el, v) {
     const proto = el.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype
-                                            : HTMLInputElement.prototype;
+      : el.tagName === "SELECT" ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
     Object.getOwnPropertyDescriptor(proto, "value").set.call(el, v);
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function press(el) {
+    ["mousedown", "mouseup", "click"].forEach((t) =>
+      el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window })));
   }
 
   async function waitFor(fn, ms) {
@@ -34,6 +62,11 @@
     return null;
   }
 
+  function options(doc) {
+    return Array.from(doc.querySelectorAll('[role="option"], .dropdown-location'))
+      .filter((o) => o.offsetParent !== null || o.getClientRects().length);
+  }
+
   function toFile(f) {
     const bin = atob(f.b64);
     const bytes = new Uint8Array(bin.length);
@@ -41,17 +74,41 @@
     return new File([bytes], f.name, { type: f.type || "application/pdf" });
   }
 
-  function options(doc) {
-    return Array.from(doc.querySelectorAll('[role="option"]'));
+  function labelOf(inp) {
+    if (inp.labels && inp.labels.length) return inp.labels[0].textContent;
+    const l = inp.closest("label");
+    return l ? l.textContent : "";
   }
 
-  async function fillOne(doc, f, value, files) {
-    const b = box(doc, f.path);
-    if (!b) throw new Error("الخانة مش موجودة في الصفحة");
+  // قايمة combobox (React-Select في Greenhouse و Ashby): نكتب ونختار.
+  // لو القايمة مابتتفتحش بالكتابة، نفتحها بالضغط على الـcontrol.
+  async function pickFromCombo(doc, combo, v) {
+    const want = norm(String(v));
+    const match = () => options(doc).find((o) => norm(o.textContent) === want) ||
+      options(doc).find((o) => norm(o.textContent).startsWith(want));
+    combo.focus();
+    setValue(combo, String(v).trim());
+    let opt = await waitFor(match, 2000);
+    if (!opt) {
+      setValue(combo, "");
+      const control = combo.closest('[class*="control"]') || combo.parentElement;
+      press(control);
+      opt = await waitFor(match, 3000);
+    }
+    if (!opt) throw new Error("الاختيار مش موجود: " + v);
+    opt.click();
+    await sleep(150);
+  }
+
+  async function fillOne(doc, site, f, value, files) {
+    const loc = locate(doc, site, f.path);
+    if (!loc) throw new Error("الخانة مش موجودة في الصفحة");
+    const el = loc.el;
+    const b = loc.box;
     const t = f.type;
 
     if (t === "File") {
-      const inp = b.querySelector('input[type="file"]');
+      const inp = el && el.type === "file" ? el : b.querySelector('input[type="file"]');
       const file = files[f.path];
       if (!inp) throw new Error("مفيش خانة رفع");
       if (!file) throw new Error("الملف مش جاهز");
@@ -66,19 +123,28 @@
 
     if (t === "Boolean") {
       const btn = b.querySelector('button[data-option="' + (value ? "yes" : "no") + '"]');
-      if (!btn) throw new Error("زرار Yes/No مش موجود");
-      btn.click();
+      if (btn) { btn.click(); return; }
+      const box = el && el.type === "checkbox" ? el : b.querySelector('input[type="checkbox"]');
+      if (!box) throw new Error("زرار Yes/No مش موجود");
+      if (box.checked !== Boolean(value)) box.click();
       return;
     }
 
     if (t === "Location") {
-      const inp = b.querySelector('input[role="combobox"]') || b.querySelector("input");
+      const inp = el && el.tagName === "INPUT" ? el
+        : b.querySelector('input[role="combobox"]') || b.querySelector('input[type="text"], input:not([type])');
       if (!inp) throw new Error("خانة الموقع مش موجودة");
+      const city = String(value).split(",")[0].trim();
       inp.focus();
-      setValue(inp, String(value).split(",")[0]);
-      const opt = await waitFor(() => options(doc).find((o) => /egypt/i.test(o.textContent)));
+      setValue(inp, city);
+      // Lever بيدوّر بس على keydown+keyup فيهم keyCode (اتجرّب 17 نوفمبر)
+      const k = { bubbles: true, key: city.slice(-1), keyCode: 79, which: 79 };
+      inp.dispatchEvent(new KeyboardEvent("keydown", k));
+      inp.dispatchEvent(new KeyboardEvent("keyup", k));
+      const opt = await waitFor(() => options(doc).find((o) => EGYPT.test(o.textContent) &&
+        norm(o.textContent).startsWith(norm(city))) || options(doc).find((o) => EGYPT.test(o.textContent)));
       if (!opt) throw new Error("مالقيتش اختيار فيه Egypt");
-      opt.click();
+      if (opt.classList.contains("dropdown-location")) press(opt); else opt.click();
       return;
     }
 
@@ -86,21 +152,28 @@
       const values = Array.isArray(value) ? value : [value];
       for (const v of values) {
         const want = norm(String(v));
-        const label = Array.from(b.querySelectorAll("label"))
-          .find((l) => norm(l.textContent) === want);
-        if (label) {
-          label.click();
-          const inp = label.control;
-          if (inp && (inp.type === "radio" || inp.type === "checkbox") && !inp.checked) inp.click();
+        const sel = el && el.tagName === "SELECT" ? el : b.querySelector("select");
+        if (sel) {
+          const o = Array.from(sel.options).find((x) => norm(x.textContent) === want || norm(x.value) === want);
+          if (!o) throw new Error("الاختيار مش موجود: " + v);
+          setValue(sel, o.value);
           continue;
         }
-        const combo = b.querySelector('input[role="combobox"]');
+        const choice = Array.from(b.querySelectorAll('input[type="radio"], input[type="checkbox"]'))
+          .find((i) => norm(i.value) === want || norm(labelOf(i)) === want);
+        if (choice) {
+          if (!choice.checked) choice.click();
+          continue;
+        }
+        const label = Array.from(b.querySelectorAll("label")).find((l) => norm(l.textContent) === want);
+        if (label) {
+          label.click();
+          continue;
+        }
+        const combo = el && el.getAttribute("role") === "combobox" ? el
+          : b.querySelector('input[role="combobox"]');
         if (combo) {
-          combo.focus();
-          setValue(combo, String(v).trim());
-          const opt = await waitFor(() => options(doc).find((o) => norm(o.textContent) === want));
-          if (!opt) throw new Error("الاختيار مش موجود: " + v);
-          opt.click();
+          await pickFromCombo(doc, combo, v);
           continue;
         }
         const leaf = Array.from(b.querySelectorAll("button, span, div, li"))
@@ -111,8 +184,8 @@
       return;
     }
 
-    const inp = b.querySelector(
-      'textarea, input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"])');
+    const inp = el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT") ? el
+      : b.querySelector('textarea, input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"])');
     if (!inp) throw new Error("مفيش خانة كتابة");
     inp.focus();
     setValue(inp, String(value));
@@ -120,6 +193,7 @@
   }
 
   async function fillForm(doc, pack) {
+    const site = pack.site || "ashby";
     const done = [];
     const problems = [];
     for (const f of pack.fields || []) {
@@ -129,8 +203,10 @@
         if (f.required) problems.push(f.title.slice(0, 60) + ": مفيش إجابة");
         continue;
       }
+      // حقل اختياري مش ظاهر (Greenhouse بيظهر Race بس بعد سؤال تاني) — مش مشكلة
+      if (!f.required && !locate(doc, site, f.path)) continue;
       try {
-        await fillOne(doc, f, v, pack.files || {});
+        await fillOne(doc, site, f, v, pack.files || {});
         done.push(f.path);
       } catch (e) {
         problems.push(f.title.slice(0, 60) + ": " + e.message);

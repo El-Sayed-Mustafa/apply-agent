@@ -186,7 +186,7 @@ def prepare_one(db, job: dict, facts: dict | None, policy: dict,
 
 
 def run(db=None, dry: bool = False, limit: int = BATCH,
-        skip_ats: tuple = ()) -> dict:
+        skip_ats: tuple = (), skip_ids: set | None = None) -> dict:
     why = ready()
     if why:
         return {"skipped": why}
@@ -203,7 +203,7 @@ def run(db=None, dry: bool = False, limit: int = BATCH,
         job = (db.table("jobs").select("id,title,company_name,location,remote_type,"
                                        "description,url,ats")
                .eq("id", jid).execute().data or [None])[0]
-        if not job or job.get("ats") in skip_ats:
+        if not job or job.get("ats") in skip_ats or jid in (skip_ids or ()):
             continue
         sc = (db.table("scores").select("facts").eq("job_id", jid)
               .order("created_at", desc=True).limit(1).execute().data)
@@ -243,3 +243,27 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def letter_pdf(job: dict, text: str, folder: Path | None = None) -> str:
+    """
+    الخطاب كـPDF — لفورمات بتطلب cover letter كملف (Lever و Greenhouse
+    أحيانًا). نفس النص اللي اتفحص، صفحة واحدة بخط عادي.
+    """
+    from html import escape
+    from playwright.sync_api import sync_playwright
+
+    folder = folder or ROOT / str(job["id"])
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / render.filename(job).replace("Elsayed-Mustafa-", "Elsayed-Mustafa-Cover-Letter-", 1)
+    paras = "".join(f"<p>{escape(p).replace(chr(10), '<br>')}</p>"
+                    for p in text.strip().split("\n\n"))
+    html = ("<html><body style=\"font:11.5pt/1.55 Georgia,serif;margin:0;color:#111\">"
+            f"<div style=\"padding:28mm 24mm\">{paras}</div></body></html>")
+    with sync_playwright() as pw:
+        b = pw.chromium.launch()
+        page = b.new_page()
+        page.set_content(html)
+        page.pdf(path=str(path), format="A4")
+        b.close()
+    return str(path)

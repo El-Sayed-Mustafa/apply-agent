@@ -1,0 +1,49 @@
+<!doctype html><html><body>
+<!-- نسخة مصغرة من فورم Lever الحقيقي (Laminar، 17 نوفمبر 2026) للاختبار -->
+<form id="application-form" onsubmit="return false">
+<ul>
+<li class="application-question resume"><label><div class="application-label">Resume/CV <span class="required">✱</span></div>
+  <div class="application-field"><input type="file" name="resume" id="resume-upload-input"></div></label></li>
+<li class="application-question"><label><div class="application-label">Full name<span class="required">✱</span></div>
+  <div class="application-field"><input type="text" name="name" required></div></label></li>
+<li class="application-question"><label><div class="application-label">Email<span class="required">✱</span></div>
+  <div class="application-field"><input type="email" name="email" required></div></label></li>
+<li class="application-question"><label><div class="application-label">Current location<span class="required">✱</span></div>
+  <div class="application-field">
+    <input class="location-input" type="text" name="location" required>
+    <input id="selected-location" type="hidden" name="selectedLocation">
+    <div class="dropdown-results" id="drop"></div></div></label></li>
+<li class="application-question"><label><div class="application-label">LinkedIn URL</div>
+  <div class="application-field"><input type="text" name="urls[LinkedIn]"></div></label></li>
+</ul>
+<input type="hidden" name="cards[abc][baseTemplate]" value="{}">
+<ul>
+<li class="application-question custom-question"><div><div class="application-label full-width dropdown"><div class="text">Do you have AI experience?<span class="required">✱</span></div></div>
+  <div class="application-field full-width required-field"><div class="application-dropdown"><select name="cards[abc][field0]" required>
+  <option value="">Select...</option><option value="Yes">Yes</option><option value="No">No</option></select></div></div></div></li>
+<li class="application-question custom-question"><div><div class="application-label full-width multiple-choice"><div class="text">Preferred contract<span class="required">✱</span></div></div>
+  <div class="application-field"><ul>
+  <li><label><input type="radio" name="cards[abc][field1]" value="Full-time"><span>Full-time</span></label></li>
+  <li><label><input type="radio" name="cards[abc][field1]" value="Contract"><span>Contract</span></label></li></ul></div></div></li>
+<li class="application-question custom-question"><div><div class="application-label full-width textarea"><div class="text">What is your notice period?<span class="required">✱</span></div></div>
+  <div class="application-field"><textarea name="cards[abc][field2]" required></textarea></div></div></li>
+</ul>
+<li class="application-question"><label><input type="checkbox" name="consent[marketing]"> Yes, contact me about future job opportunities</label></li>
+<input type="hidden" name="h-captcha-response">
+<button type="button" onclick="document.body.innerHTML='<h3>Application submitted!</h3>'">Submit application</button>
+</form>
+<script>
+// زي Lever: الاقتراحات بتظهر مع keydown/keyup بس، والاختيار بيملا selectedLocation
+const loc = document.querySelector('input[name=location]');
+loc.addEventListener('keyup', () => {
+  const d = document.getElementById('drop'); d.innerHTML = '';
+  ['Cairo, EGY', 'New Cairo, Cairo, EGY', 'Cairo, GA, USA'].forEach(t => {
+    const e = document.createElement('div'); e.className = 'dropdown-location'; e.textContent = t;
+    e.addEventListener('mousedown', () => {
+      loc.value = t; document.getElementById('selected-location').value = JSON.stringify({name: t}); d.innerHTML = '';
+    });
+    d.appendChild(e);
+  });
+});
+</script>
+</body></html>

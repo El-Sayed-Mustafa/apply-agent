@@ -1,8 +1,10 @@
-// زرار "📋 املا من Apply Agent" على صفحات Ashby.
+// زرار "📋 املا من Apply Agent" على صفحات Ashby و Greenhouse و Lever.
 // بيملا ويسيبك تراجع — الإرسال ضغطتك. لما الصفحة تقول إن الطلب وصل،
 // بيبلّغ المساعد عشان يتسجّل إنه اتبعت.
 (function () {
-  const SUCCESS = /thank you|application (was )?(submitted|received)|successfully submitted|we.ve received your application/i;
+  const SUCCESS = /thank you|thanks for applying|application (was |has been )?(submitted|received)|successfully submitted|we.ve received your application|we have received your application/i;
+  // فيه فورم في الصفحة دي؟ Ashby · Greenhouse · Lever
+  const FORM = "[data-field-path], input#first_name, #application-form, li.application-question";
   let filledJob = null;
   let reported = false;
 
@@ -45,8 +47,8 @@
   }
 
   async function run() {
-    if (!document.querySelector("[data-field-path]")) {
-      say("افتح تاب Application الأول، وبعدين دوس تاني.");
+    if (!document.querySelector(FORM)) {
+      say("افتح صفحة التقديم الأول (Application / Apply)، وبعدين دوس تاني.");
       return;
     }
     say("بجيب الإجابات…");

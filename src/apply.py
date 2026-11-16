@@ -33,7 +33,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from . import answers, ashby, form_answers, prepare, telegram
+from . import answers, ashby, ats, form_answers, prepare, telegram
 from .main import get_client
 
 EXPIRES_H = 24
@@ -42,6 +42,8 @@ LOCK_MAX_AGE = 25 * 60
 YES = re.compile(r"^(y|yes|yeah|yep|ok|نعم|ايوه|أيوه|ايوة|آه|اه|اة|تمام|موافق)\b", re.I)
 NO = re.compile(r"^(n|no|nope|لا|لأ|لاء|مش موافق|لا شكرا)\b", re.I)
 HIDE = {"_systemfield_name", "_systemfield_email"}
+# الطريقة القديمة: صورة + 📤 والإرسال من هنا (Ashby بس). الافتراضي: إضافة كروم
+AUTOSUBMIT = os.getenv("APPLY_AUTOSUBMIT") == "1"
 
 
 def _now() -> datetime:
@@ -221,15 +223,18 @@ def copy_kit(job: dict, st: dict) -> list[tuple[str, dict | None]]:
             f"<b>{telegram.esc(job.get('title'))}</b> — {telegram.esc(job.get('company_name'))}")
     url = job.get("url")
     if url:
-        link = ashby.application_url(url) if ashby.parse_url(url) else url
+        link = ats.application_url(url, job.get("company_name"))
         head += f'\n<a href="{telegram.esc(link)}">🔗 صفحة التقديم</a>'
     blocks, buttons = [], []
     for f in st.get("fields") or []:
         a = (st.get("answers") or {}).get(f["path"]) or {}
         v = a.get("value")
+        title = f"<b>{telegram.esc(telegram.clip(f['title'], 120))}</b>"
+        if a.get("source") == "manual":
+            blocks.append(f"{title}\n✋ ده بإيدك (ملف أو حاجة السيستم مايعرفهاش)")
+            continue
         if v in (None, "", []) or a.get("source") == "skip":
             continue
-        title = f"<b>{telegram.esc(telegram.clip(f['title'], 120))}</b>"
         if f["type"] == "File":
             blocks.append(f"{title}\n📎 ارفع: {telegram.esc(Path(str(v)).name)} (الملف اللي فوق)")
         elif isinstance(v, bool):
@@ -275,8 +280,9 @@ def to_manual(db, job: dict, why: str, token: str, chat: str,
 
 def start(db, job: dict, facts, policy, token, chat) -> str:
     """أول مرة: افتح الفورم، جهّز الملف، جاوب. رجّع المرحلة."""
+    site = ats.site_of(job["url"], job.get("company_name"))
     try:
-        fields = ashby.form(job["url"])
+        fields = ats.form(job["url"], job.get("company_name"))
     except Exception as exc:
         to_manual(db, job, f"الفورم مقريش: {type(exc).__name__}", token, chat, facts, policy)
         return "manual"
@@ -285,15 +291,21 @@ def start(db, job: dict, facts, policy, token, chat) -> str:
                       f"({telegram.esc(job.get('company_name'))})", token, chat)
         _set_status(db, job["id"], "failed", "الإعلان اتقفل قبل التقديم")
         return "closed"
-    bad = ashby.unsupported(fields)
+    # الإرسال الأوتوماتيك (Ashby بس) محتاج كل حقل؛ الإضافة لأ — اللي مش
+    # بتعرفه بيتعلّم "املاه بإيدك" وإنت بتراجع
+    bad = ashby.unsupported(fields) if site == "ashby" and AUTOSUBMIT else []
     if bad:
         to_manual(db, job, "حقل مش مدعوم: " + bad[0]["type"], token, chat, facts, policy)
         return "manual"
     pkg = prepare.prepare_one(db, job, facts, policy, manual=False)
     files = {"cv": pkg["cv_path"], "letter": pkg.get("letter_text")}
+    if pkg.get("letter_text") and any(f["type"] == "File" and "cover" in f["title"].lower()
+                                      for f in fields):
+        files["letter_pdf"] = prepare.letter_pdf(job, pkg["letter_text"])
     amap, _ = form_answers.answer_all(fields, job, facts, policy, files)
     st = {"stage": "asking", "fields": fields, "answers": amap, "questions": {},
-          "files": files, "url": job["url"], "started_at": _iso()}
+          "files": files, "url": job["url"], "site": site,
+          "company": job.get("company_name"), "started_at": _iso()}
     save_state(job["id"], st)
     return "asking"
 
@@ -327,7 +339,7 @@ def advance(db, job: dict, st: dict, facts, policy, token, chat) -> str:
         st["stage"] = "asking"
         save_state(job["id"], st)
         return "asking"
-    if os.getenv("APPLY_AUTOSUBMIT") != "1":
+    if not AUTOSUBMIT or st.get("site", "ashby") != "ashby":
         return ready_for_extension(db, job, st, token, chat)
 
     folder = prepare.ROOT / str(job["id"])
@@ -458,12 +470,13 @@ def _run(db, dry: bool) -> dict:
     jobs = {j["id"]: j for j in (db.table("jobs").select(
         "id,title,company_name,location,remote_type,description,url,ats")
         .in_("id", approved).execute().data if approved else [])}
-    ashby_ids = [j for j in approved if j in jobs and ashby.parse_url(jobs[j].get("url"))]
+    form_ids = [j for j in approved if j in jobs
+                and ats.site_of(jobs[j].get("url"), jobs[j].get("company_name"))]
     if dry:
         for jid in approved:
             st = load_state(jid)
             print(f"   {jid} {jobs.get(jid, {}).get('title', '?')[:40]:<42} "
-                  f"{'Ashby' if jid in ashby_ids else 'يدوي'} · {st.get('stage', 'جديدة')}"
+                  f"{ats.site_of(jobs[jid].get('url'), jobs[jid].get('company_name')) if jid in form_ids else 'يدوي'} · {st.get('stage', 'جديدة')}"
                   + (f" · أسئلة {len(form_answers.pending(st['answers']))}" if st else ""))
         return out
 
@@ -473,14 +486,14 @@ def _run(db, dry: bool) -> dict:
     out["sent"] = send_approved(db, token, chat)
 
     # اللي مش Ashby: الملف وتقدّم بنفسك (زي الدفعة 2أ)
-    manual_ids = [j for j in approved if j not in ashby_ids]
+    manual_ids = [j for j in approved if j not in form_ids]
     if manual_ids:
-        r = prepare.run(db, skip_ats=("ashby",), limit=prepare.BATCH)
+        r = prepare.run(db, skip_ids=set(form_ids), limit=prepare.BATCH)
         out["manual"] += r.get("prepared", 0)
 
-    states = {jid: load_state(jid) for jid in ashby_ids}
+    states = {jid: load_state(jid) for jid in form_ids}
     changed = read_replies(db, {k: v for k, v in states.items() if v}, jobs, token, chat)
-    for jid in ashby_ids:
+    for jid in form_ids:
         job = jobs[jid]
         sc = (db.table("scores").select("facts").eq("job_id", jid)
               .order("created_at", desc=True).limit(1).execute().data)

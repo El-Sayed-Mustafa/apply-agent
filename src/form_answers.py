@@ -105,6 +105,55 @@ def _ctx(job: dict, policy: dict) -> dict:
             "scope": answers.situation(job, country)}
 
 
+# ── "عندك خبرة في X؟" ─────────────────────────────────────────────────────
+# 17 نوفمبر: في تجربة على فورم Lever، "Do you have LLM / AI / Machine
+# Learning experience?" اتملت No (قيمة تجربة، ماتبعتتش). الإجابة الصح Yes:
+# كلهم في skill_levels.verified في سيرتك. القاعدة: verified → Yes، وأي
+# حاجة تانية (developing، future، not_experienced، MLOps…) بتتسألك —
+# عمرها ما بتقول No لوحدها.
+EXPERIENCE_Q = re.compile(
+    r"\b(do|have) you (have|had|got)\b.*\bexperience\b|\bexperience (with|in|using|of)\b|"
+    r"\b(are you|have you) (familiar|experienced|worked|used)\b", re.I)
+# مش verified أو محتاج رأيك — يتسأل
+NOT_SURE = re.compile(
+    r"\b(ml ?ops|machine learning operations|deep learning|pytorch|tensorflow|"
+    r"kubernetes|k8s|spark|hadoop|ios|swift|android|kotlin|java|c\+\+|golang|rust|"
+    r"docker|aws|azure|gcp|cloud|langgraph|ci/?cd|terraform|n8n|zapier|"
+    r"training (models?|llms?)|fine[- ]?tun|computer vision|management|managing|lead)\w*", re.I)
+# من verified في سيرتك، بالأسامي اللي الفورمات بتكتبها
+SURE = re.compile(
+    r"\b(llms?|large language models?|ai|a\.i\.|artificial intelligence|generative ai|gen ?ai|"
+    r"machine learning|ml|nlp|natural language processing|rag|retrieval[- ]augmented|"
+    r"ai agents?|agentic|agents?|prompt engineering|prompting|python|fastapi|rest apis?|apis?|"
+    r"sql|postgres(ql)?|supabase|playwright|selenium|web scraping|scraping|automation|"
+    r"data pipelines?|pandas|scikit-learn|sklearn|lightgbm|ollama|whisper|webhooks?)\b", re.I)
+
+
+def _verified() -> set[str]:
+    try:
+        from . import tailor
+        return {s.lower() for s in (tailor.full().get("skill_levels") or {}).get("verified") or []}
+    except Exception:
+        return set()
+
+
+def experience(field: dict) -> dict | None:
+    """Yes لو الموضوع في سيرتك verified؛ None (يتسألك) لأي حاجة تانية."""
+    t = field.get("title") or ""
+    if field["type"] not in ("Boolean", "ValueSelect") or len(t) > 180 or not EXPERIENCE_Q.search(t):
+        return None
+    if field["type"] == "ValueSelect" and not pick(field.get("options") or [], r"^\s*yes\b"):
+        return None                           # مش Yes/No (سنين، مستويات…) — سيبه للقواعد التانية
+    if NOT_SURE.search(t):
+        return None
+    hit = SURE.search(t)
+    if not hit and not any(re.search(r"(?<!\w)" + re.escape(v) + r"(?!\w)", t.lower())
+                           for v in _verified()):
+        return None
+    return ans(yes_no(field, True), "profile",
+               f"في سيرتك verified: {hit.group(0) if hit else 'مهارة'}")
+
+
 def rule(field: dict, job: dict, facts: dict | None, policy: dict,
          files: dict) -> dict | None:
     """إجابة بقاعدة، أو None لو القاعدة مش عارفة."""
@@ -116,11 +165,15 @@ def rule(field: dict, job: dict, facts: dict | None, policy: dict,
     full = f"{policy.get('first_name', '')} {policy.get('last_name', '')}".strip()
 
     # ── حقول النظام ──
-    if path == "_systemfield_name":
+    # Ashby: _systemfield_name · Lever: name ("Full name")
+    if path == "_systemfield_name" or (typ == "String" and
+                                       re.fullmatch(r"(full |legal )?name", tl.strip())):
         return ans(full, "profile")
     if path == "_systemfield_email" or typ == "Email":
         return ans(policy.get("email"), "profile")
-    if path == "_systemfield_resume":
+    # Ashby: _systemfield_resume · Greenhouse و Lever: resume
+    if path in ("_systemfield_resume", "resume") or (
+            typ == "File" and re.search(r"resume|\bcv\b", tl) and "cover" not in tl):
         return ans(files.get("cv"), "profile", "السيرة المتظبطة")
     if path == "_systemfield_location" or typ == "Location":
         return ans(f"{policy.get('city')}, {policy.get('country')}", "profile")
@@ -221,6 +274,11 @@ def rule(field: dict, job: dict, facts: dict | None, policy: dict,
     if re.search(r"english and arabic", tl) and typ == "Boolean":
         return ans(True, "policy")
 
+    # ── "عندك خبرة في X؟" Yes/No ──
+    exp = experience(field)
+    if exp is not None:
+        return exp
+
     # ── عرفت منين ──
     if re.search(r"how did you (hear|find|learn)|where did you (hear|find|see)|"
                  r"referral source|source of application", tl):
@@ -257,6 +315,10 @@ def answer_all(fields: list[dict], job: dict, facts: dict | None, policy: dict,
                 continue
             elif not f["required"]:
                 a = ans(None, "skip")
+            elif f["type"] == "File":
+                # ملف إجباري غير السيرة والخطاب (portfolio PDF…): مش سؤال
+                # يتجاوب على تليجرام — بترفعه إنت وإنت بتراجع الفورم
+                a = ans(None, "manual", "ارفعه بإيدك")
             else:
                 a = ask("مش في القواعد")
         out[f["path"]] = a

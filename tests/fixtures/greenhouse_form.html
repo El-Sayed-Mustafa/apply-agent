@@ -1,0 +1,38 @@
+<!doctype html><html><body>
+<!-- نسخة مصغرة من فورم Greenhouse الجديد (job-boards، 17 نوفمبر 2026): الـid اسم الحقل،
+     والقوايم React-Select (input role=combobox والاختيارات role=option) -->
+<form onsubmit="return false">
+<div class="field-wrapper"><label for="first_name">First Name*</label><input id="first_name" type="text" class="input"></div>
+<div class="field-wrapper"><label for="email">Email*</label><input id="email" type="text" class="input"></div>
+<div class="file-upload"><label>Resume/CV</label><button type="button">Attach</button><input id="resume" type="file" class="visually-hidden"></div>
+<div class="select"><label id="question_1-label">Do you require visa sponsorship?*</label>
+  <div class="select__control" data-for="question_1"><div class="select__input-container">
+  <input id="question_1" role="combobox" class="select__input" type="text"></div>
+  <span class="select__single-value" id="val-question_1"></span></div>
+  <div class="select__menu" id="menu-question_1"></div></div>
+<div class="select"><label id="question_2-label">Agreement to Arbitrate*</label>
+  <div class="select__control" data-for="question_2"><div class="select__input-container">
+  <input id="question_2" role="combobox" class="select__input" type="text" readonly></div>
+  <span class="select__single-value" id="val-question_2"></span></div>
+  <div class="select__menu" id="menu-question_2"></div></div>
+<div class="field-wrapper"><label for="question_3">Why us?*</label><textarea id="question_3"></textarea></div>
+<button type="submit" onclick="document.body.innerHTML='<h1>Thank you for applying.</h1>'">Submit application</button>
+</form>
+<script>
+const OPTS = {question_1: ['Yes', 'No'],
+              question_2: ['I understand and agree to the terms of the Agreement to Arbitrate set forth above.']};
+function openMenu(id, filter) {
+  const m = document.getElementById('menu-' + id); m.innerHTML = '';
+  OPTS[id].filter(t => !filter || t.toLowerCase().startsWith(filter.toLowerCase())).forEach(t => {
+    const d = document.createElement('div'); d.setAttribute('role', 'option'); d.className = 'select__option';
+    d.textContent = t;
+    d.onclick = () => { document.getElementById('val-' + id).textContent = t; m.innerHTML = ''; };
+    m.appendChild(d);
+  });
+}
+// القابلة للكتابة بتتفتح بالكتابة، والـreadonly (زي الموافقات) بالضغط على الـcontrol
+document.getElementById('question_1').addEventListener('input', e => openMenu('question_1', e.target.value));
+document.querySelectorAll('.select__control').forEach(c =>
+  c.addEventListener('mousedown', () => openMenu(c.dataset.for, '')));
+</script>
+</body></html>
