@@ -126,3 +126,43 @@ def test_status_counts_what_the_extension_sent(tmp_path, monkeypatch):
     s = sitejobs.status()
     assert s["bayt"] == {"pages": 1, "read": 20, "kept": 3, "blocked": 0}
     assert "indeed" not in s and s["_saved"]["n"] == 2
+
+
+def test_real_cards_from_bayt_naukrigulf_wellfound():
+    # نصوص حقيقية من صفحات 17 نوفمبر
+    j = sitejobs.to_job({"site": "bayt", "url": "https://www.bayt.com/en/qatar/jobs/data-scientist-70086527/",
+                         "title": "Data Scientist",
+                         "card": "Data Scientist\nQatar Airways\n Summary: building models for Qatar operations"})
+    assert (j.company_name, j.location) == ("Qatar Airways", "Qatar")
+    j = sitejobs.to_job({"site": "naukrigulf", "url": "https://www.naukrigulf.com/ai-engineer-jid-1",
+                         "title": "AI Engineer",
+                         "card": "AI Engineer\nDicetek LLC\n3 - 5 YearsDubai - United Arab Emirates (UAE)\n"
+                                 "Assess AI opportunities.\nEasy Apply\n26 Oct"})
+    assert (j.company_name, j.location) == ("Dicetek LLC", "Dubai - United Arab Emirates (UAE)")
+    card = ("Senior Product Engineer — AI-Native\nFull-time\n$35k – $45k • No equity\n"
+            "Remote only • India\n5 years of exp\n3 weeks ago\nSave\nApply")
+    j = sitejobs.to_job({"site": "wellfound", "url": "https://wellfound.com/jobs/1-x",
+                         "title": "Senior Product Engineer — AI-Native", "card": card})
+    assert j.company_name == "wellfound" and j.location == "India" and j.remote_type == "remote"
+    j = sitejobs.to_job({"site": "wellfound", "url": "https://wellfound.com/jobs/1-x", "company": "Acme",
+                         "title": "Senior Product Engineer — AI-Native", "card": card})
+    assert j.company_name == "Acme"
+
+
+def test_wellfound_company_header_and_naukrigulf_categories():
+    html = """<div><a href="/company/acme">Acme AI</a><p>AI agents</p>
+      <div><a href="/jobs/11-ai-engineer">AI Engineer</a><span>Remote only • Everywhere</span></div>
+      <div><a href="/jobs/12-ml-engineer">ML Engineer</a></div></div>"""
+    r = _extract(html, "wellfound.com", "/role/r/ai")
+    assert [j["company"] for j in r["jobs"]] == ["Acme AI", "Acme AI"]
+    r = _extract('<a href="/part-time-jobs-in-dubai">Part Time Jobs In Dubai</a>'
+                 '<a href="/ai-engineer-jobs-in-dubai-uae-jid-123">AI Engineer</a>', "www.naukrigulf.com", "/x")
+    assert [j["title"] for j in r["jobs"]] == ["AI Engineer"]
+
+
+def test_wellfound_salary_and_equity_lines_are_not_companies():
+    for card in ("AI Engineer\nFull-time\nد.إ60k – د.إ100k\nOnsite or remote • Dubai+1",
+                 "AI Engineer\nFull-time\n1.0% – 2.0%\nRemote • United States"):
+        j = sitejobs.to_job({"site": "wellfound", "url": "https://wellfound.com/jobs/2-ai",
+                             "title": "AI Engineer", "card": card})
+        assert j.company_name == "wellfound" and j.location in ("Dubai+1", "United States")

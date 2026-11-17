@@ -52,12 +52,18 @@ NOISE = re.compile(
     r"\d{1,2} [a-z]{3}(?: \d{4})?|[a-z]{3} \d{1,2}(?:, \d{4})?)$", re.I)
 
 
+YEARS = re.compile(r"^\d+\s*-\s*\d+\s*years?\s*", re.I)      # Naukrigulf: "3 - 5 YearsDubai - UAE"
+WF_MODE = re.compile(r"^(?:remote(?: only)?|onsite or remote|in office|hybrid|onsite)\b[^•]*•\s*(.+)$", re.I)
+WF_NOISE = re.compile(r"^(?:top \d+% of responders|responds within .*|\d+ years? of exp.*|no equity|"
+                      r".*\d(?:\.\d+)?\s*[k%]\s*[–-].*)$", re.I)   # مرتب بأي عملة أو أسهم: "د.إ60k – د.إ100k"، "1.0% – 2.0%"
+
+
 def _lines(card: str, title: str) -> list[str]:
     out = []
     # GulfTalent بيفصل بـTab، وBayt بـ" | "
     for raw in re.split(r"[\n\t|]", card or ""):
-        line = raw.strip(" \t·•|")
-        if not line or line == title or NOISE.match(line):
+        line = YEARS.sub("", raw.strip(" \t·•|")).strip()
+        if not line or line == title or NOISE.match(line) or WF_NOISE.match(line):
             continue
         out.append(line)
     return out
@@ -95,14 +101,31 @@ def _parse_card(item: dict) -> tuple[str, str]:
     location = (item.get("location") or "").strip()
     title = (item.get("title") or "").strip()
     lines = _lines(item.get("card") or "", title)
-    if item["site"] == "wuzzuf" and lines and " - " in lines[0]:
+    site = item["site"]
+
+    def place(cands):
+        # سطر قصير فيه بلد — مش ملخص الوظيفة
+        return next((l for l in cands if len(l) < 60 and not l.lower().startswith("summary")
+                     and targeting.detect_country(l)[0]), "")
+
+    if site == "wuzzuf" and lines and " - " in lines[0]:
         # "Confidential - Cairo, Egypt"
         c, l = lines[0].split(" - ", 1)
         return company or c.strip(), location or l.strip()
-    if item["site"] == "wellfound" and lines:
-        company = company or lines[0]          # الكارت بيبدأ باسم الشركة
+    if site == "wellfound":
+        # الشركة فوق في راس الكارت (والإضافة بتبعتها)، والمكان في "Remote only • India"
+        mode = next((m for m in map(WF_MODE.match, lines) if m), None)
+        if mode and not location:
+            location = mode.group(1).strip()
+        if not company and lines and not WF_MODE.match(lines[0]):
+            company = lines[0]
+        return company[:120], location[:120]
+    if site == "bayt" and lines:
+        # "Title | Company | Summary: ..."
+        company = company or lines[0]
+        return company[:120], (location or place(lines[1:]))[:120]
     if not location:
-        location = next((l for l in lines if targeting.detect_country(l)[0]), "")
+        location = place(lines)
     if not company:
         company = next((l for l in lines if l != location and len(l) < 80
                         and not targeting.detect_country(l)[0]), "")

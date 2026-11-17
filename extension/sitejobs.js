@@ -7,7 +7,7 @@
 //   bayt        /en/<country>/jobs/<slug>-<digits>/
 //   gulftalent  /<country>/jobs/<slug>-<digits>
 //   indeed      [data-jk] → /viewjob?jk=<jk>
-//   naukrigulf  ...-jid-<digits>  أو  ...-jobs-in-...
+//   naukrigulf  ...-jid-<digits>
 //   wellfound   /jobs/<digits>-<slug>
 // والكارت = أكبر عنصر حوالين اللينك مافيهوش لينك وظيفة تاني.
 (function (root) {
@@ -19,7 +19,7 @@
     wuzzuf: (h) => /\/jobs\/p\//.test(h),
     bayt: (h) => /\/jobs\/[^/]+-\d{5,}\/?$/.test(h),
     gulftalent: (h) => /\/jobs\/[^/?#]+-\d{4,}$/.test(h),
-    naukrigulf: (h) => /-jid-\d+|-jobs-in-/.test(h),
+    naukrigulf: (h) => /-jid-\d+/.test(h),       // "-jobs-in-dubai" لوحدها = تصنيف مش وظيفة
     wellfound: (h) => /\/jobs\/\d+-/.test(h),
   };
 
@@ -79,10 +79,19 @@
           if (other) break;
           card = p;
         }
+        let company = "";
+        if (name === "wellfound") {
+          // شركة واحدة فوق كذا وظيفة: الاسم في لينك /company/ في راس الكارت
+          let up = a;
+          for (let i = 0; i < 15 && up && !company; i++, up = up.parentElement) {
+            const c = up.querySelector && up.querySelector('a[href*="/company/"]');
+            if (c) company = (c.innerText || "").trim().split("\n")[0].slice(0, 120);
+          }
+        }
         out.push({
           url: url,
           title: (a.innerText || "").trim().split("\n")[0].slice(0, 160),
-          company: "", location: "",
+          company: company, location: "",
           card: (card.innerText || "").slice(0, 800),
         });
       }
