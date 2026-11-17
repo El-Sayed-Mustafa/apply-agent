@@ -23,6 +23,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -120,7 +121,13 @@ def package_text(job: dict, sheet: dict, letter_ok: bool) -> str:
     lines = [f"📦 <b>ملف التقديم جاهز</b>",
              f"<b>{telegram.esc(job.get('title'))}</b> — {telegram.esc(job.get('company_name'))}",
              telegram.esc(job.get("location") or ""), ""]
-    if job.get("ats") in ("linkedin_job", "linkedin_post"):
+    mail = apply_email(job)
+    if mail:
+        lines.append(f"📧 <b>التقديم بالإيميل:</b> <code>{telegram.esc(mail[0])}</code>")
+        if mail[1]:
+            lines.append(f"✉️ <b>عنوان الإيميل (مطلوب):</b> <code>{telegram.esc(mail[1])}</code>")
+        lines.append("ابعت السيرة اللي فوق مرفقة، والخطاب في نص الإيميل.")
+    elif job.get("ats") in ("linkedin_job", "linkedin_post"):
         lines.append("لينكدإن: قدّم إنت من اللينك (Easy Apply مش أوتوماتيك).")
     else:
         lines.append("قدّم من اللينك. الملء الأوتوماتيك جاي في الدفعة 2ب.")
@@ -132,9 +139,32 @@ def package_text(job: dict, sheet: dict, letter_ok: bool) -> str:
         if k in ("Full name", "Email", "Phone", "LinkedIn", "GitHub", "Portfolio"):
             continue
         lines.append(f"• {telegram.esc(k)}: <code>{telegram.esc(v)}</code>")
-    if job.get("url"):
-        lines += ["", f'<a href="{telegram.esc(job["url"])}">🔗 صفحة التقديم</a>']
+    url = job.get("url") or ""
+    if url.startswith("http"):
+        label = "🔗 المنشور" if job.get("ats") == "linkedin_post" else "🔗 صفحة التقديم"
+        lines += ["", f'<a href="{telegram.esc(url)}">{label}</a>']
     return "\n".join(lines)
+
+
+def apply_email(job: dict) -> tuple[str, str] | None:
+    """(الإيميل، العنوان المطلوب) لو التقديم بالإيميل — من وصف الوظيفة."""
+    d = job.get("description") or ""
+    m = re.search(r"طريقة التقديم:\s*.*?([\w.+-]+@[\w-]+(?:\.[\w-]+)+)", d)
+    if not m:
+        return None
+    s = re.search(r"عنوان الإيميل:\s*(.+)", d)
+    return m.group(1), (s.group(1).strip() if s else "")
+
+
+def package_markup(job: dict) -> dict | None:
+    """أزرار نسخ للإيميل وعنوانه (نفس copy_text بتاع قايمة النسخ)."""
+    mail = apply_email(job)
+    if not mail:
+        return None
+    rows = [[{"text": "📋 الإيميل", "copy_text": {"text": mail[0]}}]]
+    if mail[1]:
+        rows.append([{"text": "📋 عنوان الإيميل", "copy_text": {"text": mail[1][:256]}}])
+    return {"inline_keyboard": rows}
 
 
 def prepare_one(db, job: dict, facts: dict | None, policy: dict,
@@ -177,7 +207,8 @@ def prepare_one(db, job: dict, facts: dict | None, policy: dict,
     from . import customize
     telegram.send(customize.changes_text(tailor.full(), plan, rejected), token, chat)
     if manual:
-        telegram.send(package_text(job, sheet, bool(letter)), token, chat)
+        telegram.send(package_text(job, sheet, bool(letter)), token, chat,
+                      markup=package_markup(job))
     if letter:
         telegram.send(f"✉️ <b>Cover letter</b> — اضغط عليه يتنسخ\n"
                       f"<pre>{telegram.esc(letter)}</pre>", token, chat)

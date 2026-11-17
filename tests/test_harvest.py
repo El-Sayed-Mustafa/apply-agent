@@ -225,3 +225,24 @@ def test_a_post_is_asked_about_once(tmp_path, monkeypatch):
     assert harvest.post_hash(a) == harvest.post_hash("  hiring ai engineer in riyadh  apply now ")
     harvest._remember({harvest.post_hash(a): "2099-01-01", "old": "2000-01-01"})
     assert harvest._seen() == {harvest.post_hash(a): "2099-01-01"}     # القديم اتمسح
+
+
+def test_email_post_keeps_the_post_link_the_email_and_the_subject():
+    """SMART VISIONS: صفحة التقديم كانت بروفايل اللي نشر، والعنوان المطلوب ضاع."""
+    from src import prepare
+    post = {"author": "Hamed Minaei", "author_url": "https://www.linkedin.com/in/hamed/",
+            "post_url": "https://www.linkedin.com/feed/update/urn:li:activity:752806/",
+            "links": [], "query": "x",
+            "text": "We're hiring. Send your CV to: manager@connect.smartvisionsai.com "
+                    "Email Subject: Remote AI Engineer – Your Full Name GitHub profiles appreciated."}
+    j = harvest.to_job(post, {"title": "Remote AI Engineer", "company": "SMART VISIONS",
+                              "apply": "manager@connect.smartvisionsai.com", "summary": "AI role"})
+    assert j.url == post["post_url"]
+    job = {"description": j.description, "ats": "linkedin_post"}
+    assert prepare.apply_email(job) == ("manager@connect.smartvisionsai.com",
+                                        "Remote AI Engineer – Elsayed Mustafa")
+    kb = prepare.package_markup(job)["inline_keyboard"]
+    assert kb[1][0]["copy_text"]["text"] == "Remote AI Engineer – Elsayed Mustafa"
+    # من غير لينك منشور: mailto أحسن من بروفايل اللي نشر
+    j2 = harvest.to_job(dict(post, post_url=""), {"title": "x", "apply": "a@b.com"})
+    assert j2.url == "mailto:a@b.com"

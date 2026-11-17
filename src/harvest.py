@@ -93,9 +93,13 @@ JS_SEARCH = r"""() => {
       .map(a => a.getAttribute('href') || '')
       .filter(h => /^https?:/.test(h) && !/linkedin\.com\/(in|company)\//.test(h));
 
+    // لينك المنشور نفسه — من غيره "صفحة التقديم" كانت بتروح لبروفايل
+    // اللي نشر (SMART VISIONS، 17 نوفمبر)
+    const perma = e.querySelector('a[href*="/feed/update/urn:li:"], a[href*="/posts/"]');
     out.push({
       text: t.slice(0, 4000),
       who_url: who ? (who.getAttribute('href') || '').split('?')[0] : '',
+      post_url: perma ? new URL(perma.getAttribute('href'), location.origin).href.split('?')[0] : '',
       links: [...new Set(links)].slice(0, 4)
     });
   });
@@ -219,6 +223,7 @@ def collect_feed(page, scrolls: int = FEED_SCROLLS) -> list[dict]:
             if len(body) < MIN_CHARS or body[:160].lower() in found:
                 continue
             found[body[:160].lower()] = {"author": author, "author_url": p["who_url"],
+                                         "post_url": p.get("post_url") or "",
                                          "links": p["links"], "text": body, "query": "feed"}
         scroll(page)
     return list(found.values())
@@ -270,6 +275,7 @@ def collect(page, queries: list[str], want: int = MAX_POSTS) -> list[dict]:
                 found[key] = {
                     "author": author,
                     "author_url": p["who_url"],
+                    "post_url": p.get("post_url") or "",
                     "links": p["links"],
                     "text": body,
                     "query": q,
@@ -383,6 +389,23 @@ class _Row:
         self.description = j.description
 
 
+def subject_line(text: str) -> str:
+    """
+    "Email Subject: Remote AI Engineer – Your Full Name" → بالاسم بتاعك.
+    كتير من منشورات التقديم بالإيميل بتشترط عنوان معيّن، والإيميل اللي
+    من غيره بيضيع.
+    """
+    m = re.search(r"subject(?:\s*line)?\s*[:：\-–]\s*([^\n]{3,120})", text or "", re.I)
+    if not m:
+        return ""
+    s = m.group(1).strip()
+    # نص المنشور سطر واحد، فالعنوان بيلزق فيه اللي بعده — بنقطع بعد
+    # "Your Full Name" (اللي بيبقى آخره دايمًا) أو عند نهاية الجملة
+    ph = re.search(r"[\[(]?\b(?:your|candidate)\s*(?:full\s*)?name\b[\])]?", s, re.I)
+    s = s[:ph.start()] + "Elsayed Mustafa" if ph else re.split(r"(?<=[\w)])\.\s|\s{2,}", s)[0]
+    return s.strip(" .")
+
+
 def to_job(post: dict, data: dict) -> Job:
     """
     حوّل الاستخراج لوظيفة.
@@ -391,15 +414,24 @@ def to_job(post: dict, data: dict) -> Job:
     و"مجهولة" لكل المنشورات هتخلي وظايف مختلفة تبان مكررة.
     """
     company = (data.get("company") or "").strip() or (post["author"] or "لينكدإن")
-    apply_url = (data.get("apply") or "").strip()
-    if not apply_url.startswith("http"):
-        apply_url = next((l for l in post["links"] if l.startswith("http")),
-                         post["author_url"] or "")
+    apply = (data.get("apply") or "").strip()
+    email = re.search(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", apply)
+    # الترتيب: لينك تقديم حقيقي → المنشور نفسه → mailto → بروفايل اللي نشر
+    apply_url = apply if apply.startswith("http") else next(
+        (l for l in post["links"] if l.startswith("http")), "")
+    apply_url = (apply_url or post.get("post_url")
+                 or (f"mailto:{email.group(0)}" if email else "") or post["author_url"] or "")
 
     body = data.get("summary") or post["text"]
-    if data.get("apply") and not data["apply"].startswith("http"):
+    if apply and not apply.startswith("http"):
         # إيميل التقديم لازم يوصله — مش هيلاقيه في الرابط
-        body = f"{body}\n\nطريقة التقديم: {data['apply']}"
+        body = f"{body}\n\nطريقة التقديم: {apply}"
+        subject = subject_line(post["text"])
+        if subject:
+            body += f"\nعنوان الإيميل: {subject}"
+    # مين نشر: التحية في الخطاب بتتبني عليه (cover.greeting)
+    if post.get("author"):
+        body += f"\nنشره على لينكدإن: {post['author']}"
 
     return Job(
         company_name=company[:120],

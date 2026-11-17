@@ -128,3 +128,17 @@ def test_cv_title_is_the_jobs_own_title_when_true():
     assert j("Data Engineer (m/f/d)") == "Data Engineer"
     assert j("Senior MLOps Engineer") == ""             # مش شغلك — Sonnet يختار
     assert j("iOS Developer") == ""
+
+
+def test_greeting_never_takes_a_company_word_as_a_first_name():
+    """17 نوفمبر: "Hi SMART," — SMART VISIONS اتعاملت كاسم شخص."""
+    post = {"ats": "linkedin_post", "company_name": "SMART VISIONS",
+            "description": "Remote AI role.\nنشره على لينكدإن: Hamed Minaei"}
+    assert cover.greeting(post) == "Hi Smart Visions team,"
+    # الشركة ناقصة فاتسجّل اللي نشر: ده شخص فعلًا
+    post = {"ats": "linkedin_post", "company_name": "Hamed Minaei",
+            "description": "x\nنشره على لينكدإن: Hamed Minaei"}
+    assert cover.greeting(post) == "Hi Hamed,"
+    # منشور قديم من غير "نشره": الكابيتال كله مش اسم شخص
+    assert cover.greeting({"ats": "linkedin_post", "company_name": "SMART VISIONS"}) \
+        == "Hi Smart Visions team,"

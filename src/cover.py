@@ -113,20 +113,36 @@ _ORG = re.compile(r"\b(inc|llc|ltd|gmbh|group|labs?|technologies|solutions|"
                   r"recruit\w*|talent|careers|hr|hiring|consult\w*)\b", re.I)
 
 
+def _nice(name: str) -> str:
+    """SMART VISIONS → Smart Visions. الاسم المكتوب كابيتال كله بيبان صريخ."""
+    return name.title() if name.isupper() and len(name) > 4 else name
+
+
 def greeting(job: dict) -> str:
     """
     منشور لينكدإن من شخص → "Hi Tamer,". شركة → "Hi Scale team,".
     مش واضح → "Hello,".
+
+    17 نوفمبر: "Hi SMART," — المنشور كان فيه اسم الشركة (SMART VISIONS)،
+    والقاعدة افتكرته اسم شخص وخدت أول كلمة. دلوقتي اللي نشر متسجّل في
+    الوصف ("نشره على لينكدإن: …")، والاسم بيتعامل كشخص بس لو هو نفسه
+    اللي نشر. الاسم الكابيتال كله عمره ما يبقى اسم شخص.
     """
     name = re.split(r"[,|(]", job.get("company_name") or "")[0].strip()
     if not name:
         return "Hello,"
     if job.get("ats") == "linkedin_post":
-        first = name.split()[0]
-        if not _ORG.search(name) and first.isalpha() and len(name.split()) <= 4:
-            return f"Hi {first},"
+        m = re.search(r"نشره على لينكدإن:\s*(.+)", job.get("description") or "")
+        poster = re.split(r"[,|(]", m.group(1))[0].strip() if m else ""
+        person = (name.lower() == poster.lower()) if poster else (
+            not _ORG.search(name) and not name.isupper()
+            and name.split()[0].isalpha() and len(name.split()) <= 4)
+        if person:
+            return f"Hi {name.split()[0]},"
+        if poster or name.isupper() or _ORG.search(name):
+            return f"Hi {_nice(name)} team," if not _ORG.search(name) else "Hello,"
         return "Hello,"
-    return f"Hi {name} team,"
+    return f"Hi {_nice(name)} team,"
 
 
 def write(job: dict, relocation_line: str = "", cli=None) -> tuple[str | None, list[str], float]:
