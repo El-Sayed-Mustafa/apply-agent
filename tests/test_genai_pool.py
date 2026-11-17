@@ -156,3 +156,18 @@ def test_every_call_has_a_ceiling():
 def test_server_side_deadline_is_retryable():
     """المهلة بتتبعت لجوجل، فلما تخلص عنده بيرجّع 504 مش timeout محلي."""
     assert genai_pool.is_transient("504 DEADLINE_EXCEEDED. {'error': {'code': 504}}")
+
+
+def test_exhausted_pool_lets_scoring_fall_to_the_next_model():
+    """
+    GitHub، 17 نوفمبر: بعد ما الخمس مفاتيح ماتوا على أول موديل، رسالة
+    المجمّع ماكانتش بتتقرا "حصة يومية"، فكل وظيفة باقية فشلت بدل ما
+    تتجرب على الموديلين التانيين.
+    """
+    from src import scoring
+    p = pool_with(["a", "b"], {"a": DAILY, "b": DAILY})
+    with pytest.raises(Exception):
+        p.models.generate_content(model="m", contents="x")
+    with pytest.raises(RuntimeError) as e:
+        p.models.generate_content(model="m", contents="x")
+    assert scoring._is_daily_quota(str(e.value))

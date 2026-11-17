@@ -105,8 +105,14 @@ class Pool:
     def _run(self, model: str, contents, config):
         live = [k for k in self._keys if (k, model) not in self._dead]
         if not live:
+            # "429 … PerDay" عن قصد: ده الشكل اللي scoring._is_daily_quota
+            # وharvest.extract بيعرفوه فينطّوا للموديل اللي بعده. من غيره
+            # الرسالة كانت بتتقرا "غلط دائم" والوظيفة بتفشل من غير ما
+            # تتجرب على باقي الموديلات (GitHub، 17 نوفمبر: 17 فشل من 20
+            # والموديلين التانيين لسه فيهم حصة).
             raise RuntimeError(
-                f"كل المفاتيح ({len(self._keys)}) خلصت حصتها اليومية على {model}")
+                f"429 RESOURCE_EXHAUSTED PerDay: كل المفاتيح ({len(self._keys)}) "
+                f"خلصت حصتها اليومية على {model}")
 
         last: Exception | None = None
         for key in live:
