@@ -171,7 +171,23 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self._allowed():
             return
-        if urlparse(self.path).path != "/submitted":
+        path = urlparse(self.path).path
+        if path == "/sitejobs":
+            # كروت وظايف من صفحة نتايج (extension/sitejobs.js) — فلترة وحفظ
+            try:
+                n = min(int(self.headers.get("Content-Length") or 0), 500_000)
+                payload = json.loads(self.rfile.read(n) or b"{}")
+                if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
+                    raise ValueError
+            except Exception:
+                return self._send(400, {"error": "طلب غلط"})
+            try:
+                from . import sitejobs
+                r = sitejobs.ingest_pages(payload, quiet=True)
+                return self._send(200, {"ok": True, "kept": r["kept"], "saved": r["saved"]})
+            except Exception as exc:
+                return self._send(500, {"error": f"{type(exc).__name__}"})
+        if path != "/submitted":
             return self._send(404, {"error": "مش موجود"})
         try:
             n = min(int(self.headers.get("Content-Length") or 0), 10_000)

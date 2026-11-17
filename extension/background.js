@@ -19,6 +19,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   let req;
   if (msg.kind === "pack") {
     req = fetch(cfg.url + "/pack?url=" + encodeURIComponent(msg.url), { headers });
+  } else if (msg.kind === "sitejobs") {
+    // كروت وظايف من Wuzzuf / Bayt / GulfTalent / Indeed / Naukrigulf / Wellfound
+    req = fetch(cfg.url + "/sitejobs", {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, headers),
+      body: JSON.stringify(msg.payload),
+    });
   } else if (msg.kind === "submitted") {
     req = fetch(cfg.url + "/submitted", {
       method: "POST",
