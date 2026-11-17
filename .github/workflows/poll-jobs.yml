@@ -73,6 +73,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # الحصة اليومية لكل مفتاح لوحده: بمفتاح واحد التقييم هنا كان بيفشل
+          # 17-18 من 20 (17 نوفمبر). المفتاح الناقص بيرجع فاضي وبيتجاهل.
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          GEMINI_API_KEY_4: ${{ secrets.GEMINI_API_KEY_4 }}
+          GEMINI_API_KEY_5: ${{ secrets.GEMINI_API_KEY_5 }}
         run: python -m src.score
 
       - name: Notify on Telegram
@@ -85,6 +91,12 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # الحصة اليومية لكل مفتاح لوحده: بمفتاح واحد التقييم هنا كان بيفشل
+          # 17-18 من 20 (17 نوفمبر). المفتاح الناقص بيرجع فاضي وبيتجاهل.
+          GEMINI_API_KEY_2: ${{ secrets.GEMINI_API_KEY_2 }}
+          GEMINI_API_KEY_3: ${{ secrets.GEMINI_API_KEY_3 }}
+          GEMINI_API_KEY_4: ${{ secrets.GEMINI_API_KEY_4 }}
+          GEMINI_API_KEY_5: ${{ secrets.GEMINI_API_KEY_5 }}
           # زرار "قدّم" والسيرة بتتظبط بعد الضغطة بس — زي التشغيلة على الجهاز
           APPLY_FLOW: "1"
         run: python -m src.notify

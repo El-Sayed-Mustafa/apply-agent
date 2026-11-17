@@ -53,7 +53,15 @@ CFG = "targeting.yaml"
 
 # كام منشور نقرا في التشغيلة. القراءة نداء موديل لكل منشور، والحصة
 # المجانية محدودة بالدقيقة — 25 بتخلص من غير 429.
-MAX_POSTS = int(os.getenv("HARVEST_MAX_POSTS", "25"))
+#
+# 17 نوفمبر: 25 كانت قليلة — منشور "REMOTE AI ENGINEER" (Hamed Minaei)
+# فاتنا. دلوقتي بنقرا كتير، والفلتر الرخيص + ذاكرة اللي اتسأل قبل كده
+# هما اللي بيحموا الحصة، مش العدد.
+MAX_POSTS = int(os.getenv("HARVEST_MAX_POSTS", "150"))
+# الصفحة الرئيسية: منشورات الناس اللي إنت متابعهم (ريكروترز ومهندسين)
+FEED_SCROLLS = int(os.getenv("HARVEST_FEED_SCROLLS", "12"))
+SEEN = "state/harvest_seen.json"
+SEEN_DAYS = 21
 
 # منشور التوظيف بيبقى طويل: مسمى وموقع ومتطلبات وطريقة تقديم.
 # أي حاجة أقصر من كده مش هتطلّع وظيفة كاملة.
@@ -129,14 +137,91 @@ SEEKING = re.compile(
     r"متاح للعمل", re.I)
 
 
+# مجالك. من غير ده، أي "hiring" بتاخد نداء: Polisher و Quantity Surveyor
+# و SAP كانوا تلت منشورات التوظيف في الصفحة الرئيسية (17 نوفمبر).
+# واسع عن قصد — القرار الحقيقي للموديل والاستهداف بعده.
+ROLE = re.compile(
+    r"\b(ai|a\.i\.|ml|llms?|genai|gen ai|generative|machine learning|artificial intelligence|"
+    r"deep learning|nlp|computer vision|automations?|python|data scien\w*|"
+    r"data (?:engineer|analy|platform)\w*|agents?|agentic|chatbots?|rag|backend|back-end|"
+    r"full[- ]?stack|software (?:engineer|developer)|integration engineer|forward deployed|"
+    r"solutions? (?:engineer|architect)|platform engineer|mlops|n8n|prompt engineer\w*)\b|"
+    r"ذكاء اصطناعي|الذكاء الاصطناعي|تعلم الآلة|أتمتة|مهندس برمجيات|مطور|محلل بيانات|تحليل البيانات",
+    re.I)
+
+
 def worth_asking(text: str) -> bool:
-    """يستاهل ندفع فيه نداء موديل؟"""
-    return bool(HIRING.search(text)) and not SEEKING.search(text)
+    """يستاهل ندفع فيه نداء موديل؟ توظيف + في مجالك + مش حد بيدوّر لنفسه."""
+    return bool(HIRING.search(text)) and bool(ROLE.search(text)) and not SEEKING.search(text)
+
+
+def _seen() -> dict:
+    import json
+    try:
+        return json.loads(open(SEEN, encoding="utf-8").read())
+    except Exception:
+        return {}
+
+
+def _remember(seen: dict) -> None:
+    """منشور اتسأل عنه مايتسألش تاني: نفس المنشورات بتطلع كل يوم."""
+    import json
+    from datetime import timedelta
+    cut = (datetime.now(timezone.utc) - timedelta(days=SEEN_DAYS)).date().isoformat()
+    keep = {k: v for k, v in seen.items() if v >= cut}
+    os.makedirs(os.path.dirname(SEEN), exist_ok=True)
+    with open(SEEN, "w", encoding="utf-8") as f:
+        json.dump(keep, f)
+
+
+def post_hash(text: str) -> str:
+    import hashlib
+    return hashlib.sha1(re.sub(r"\W+", "", text.lower())[:400].encode()).hexdigest()[:16]
 
 
 def searches() -> list[str]:
     cfg = yaml.safe_load(open(CFG, encoding="utf-8")) or {}
     return (cfg.get("post_search") or {}).get("queries") or []
+
+
+def scroll(page) -> None:
+    """
+    انزل لتحت. الماوس لازم يبقى فوق المحتوى: عند (0,0) بيبقى فوق شريط
+    لينكدإن العلوي والعجلة مابتحرّكش حاجة — كده كنا بنقرا أول شاشة بس
+    (اتقاس 17 نوفمبر: 8 منشورات ثابتة في 6 تمريرات، و30 بعد التصليح).
+    """
+    page.mouse.move(640, 600)
+    page.mouse.wheel(0, 2400)
+    session.human_pause(2, 3)
+    page.keyboard.press("End")
+    session.human_pause(3, 5)
+    session.guard(page)
+
+
+def collect_feed(page, scrolls: int = FEED_SCROLLS) -> list[dict]:
+    """منشورات الصفحة الرئيسية — نفس قارئ البحث، نفس الشكل."""
+    try:
+        page.goto(f"{session.BASE}/feed/", wait_until="domcontentloaded", timeout=45_000)
+    except Exception as exc:
+        print(f"   ⚠ الصفحة الرئيسية: {exc}")
+        return []
+    session.human_pause(6, 9)
+    session.guard(page)
+    found: dict[str, dict] = {}
+    for _ in range(scrolls):
+        try:
+            raw = page.evaluate(JS_SEARCH)
+        except Exception as exc:
+            print(f"   ⚠ تعذّرت قراءة الصفحة الرئيسية: {exc}")
+            raw = []
+        for p in raw:
+            author, body = clean(p["text"])
+            if len(body) < MIN_CHARS or body[:160].lower() in found:
+                continue
+            found[body[:160].lower()] = {"author": author, "author_url": p["who_url"],
+                                         "links": p["links"], "text": body, "query": "feed"}
+        scroll(page)
+    return list(found.values())
 
 
 def collect(page, queries: list[str], want: int = MAX_POSTS) -> list[dict]:
@@ -164,7 +249,7 @@ def collect(page, queries: list[str], want: int = MAX_POSTS) -> list[dict]:
         session.human_pause(6, 10)
         session.guard(page)
 
-        for _ in range(2):
+        for _ in range(5):
             try:
                 raw = page.evaluate(JS_SEARCH)
             except Exception as exc:
@@ -192,9 +277,7 @@ def collect(page, queries: list[str], want: int = MAX_POSTS) -> list[dict]:
 
             if got >= per_query or len(found) >= want:
                 break
-            page.mouse.wheel(0, 1600)
-            session.human_pause(3, 6)
-            session.guard(page)
+            scroll(page)
 
     return list(found.values())[:want]
 
@@ -383,18 +466,28 @@ def run(dry: bool = False, limit: int = MAX_POSTS) -> dict:
             return {"error": "مفيش جلسة LinkedIn"}
         try:
             posts = collect(page, queries, want=limit)
+            feed = collect_feed(page)
         except Blocked as b:
             return {"error": f"اعتراض: {b}"}
 
-    print(f"📰 {len(posts)} منشور\n")
+    have = {p["text"][:160].lower() for p in posts}
+    posts += [p for p in feed if p["text"][:160].lower() not in have]
+    print(f"📰 {len(posts)} منشور ({len(feed)} من الصفحة الرئيسية)\n")
     client = genai_pool.client()
     jobs, skipped = [], 0
 
-    asked = 0
+    asked = repeat = 0
+    seen = _seen()
+    today = datetime.now(timezone.utc).date().isoformat()
     for p in posts:
         if not worth_asking(p["text"]):
             skipped += 1
             continue
+        h = post_hash(p["text"])
+        if h in seen:
+            repeat += 1                 # اتسأل عنه في تشغيلة قبل كده
+            continue
+        seen[h] = today
         if asked:
             time.sleep(PACE)
         asked += 1
@@ -418,16 +511,19 @@ def run(dry: bool = False, limit: int = MAX_POSTS) -> dict:
               f"{j.location or '—'}")
 
     jobs = dedupe(jobs)
+    if not dry:
+        _remember(seen)
 
     saved = []
     if jobs and not dry:
         saved = save(get_client(), jobs)
 
-    print(f"\n📊 {len(posts)} منشور · {asked} اتسألوا · {len(jobs)} وظيفة"
-          f" · {skipped} مستبعد · {len(saved)} جديدة")
+    print(f"\n📊 {len(posts)} منشور · {asked} اتسألوا · {repeat} اتسألوا قبل كده · "
+          f"{len(jobs)} وظيفة · {skipped} مستبعد · {len(saved)} جديدة")
     if dry:
         print("(--dry-run: مفيش حفظ)")
-    return {"posts": len(posts), "jobs": len(jobs), "saved": len(saved)}
+    return {"posts": len(posts), "feed": len(feed), "asked": asked, "repeat": repeat,
+            "jobs": len(jobs), "saved": len(saved)}
 
 
 def main() -> int:

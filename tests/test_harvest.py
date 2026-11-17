@@ -198,3 +198,30 @@ def test_ineligible_geography_is_dropped():
     import inspect
     src = inspect.getsource(harvest.run)
     assert "targeting.evaluate" in src
+
+
+# ── 17 نوفمبر: قراية أكتر من غير ما الحصة تخلص ─────────────────────────
+
+@pytest.mark.parametrize("text", [
+    # من الصفحة الرئيسية الحقيقية: توظيف، بس برّه مجالك — مايستاهلش نداء
+    "NEW JOB OPPORTUNITY: Polisher (United Arab Emirates) Ras Al Khaimah. Apply now",
+    "بنك الرياض تفتح باب التوظيف المسمى: Quantity Surveyor المكان: أبها. التقديم عبر الرابط",
+    "We're hiring a Senior Mechanical Engineer (Maintenance) in Abu Dhabi",
+])
+def test_hiring_outside_your_field_costs_nothing(text):
+    assert not harvest.worth_asking(text)
+
+
+def test_the_post_we_missed_reaches_the_model():
+    """Hamed Minaei، 16 نوفمبر — فاتنا لإننا كنا بنقرا 25 منشور بس."""
+    text = ("WE'RE HIRING | REMOTE AI ENGINEER Worldwide Opportunity | Work From Anywhere "
+            "Compensation: $350–$500 USD per week SMART VISIONS is expanding its global AI team")
+    assert harvest.worth_asking(text)
+
+
+def test_a_post_is_asked_about_once(tmp_path, monkeypatch):
+    monkeypatch.setattr(harvest, "SEEN", str(tmp_path / "seen.json"))
+    a = "Hiring AI Engineer in Riyadh. Apply now!"
+    assert harvest.post_hash(a) == harvest.post_hash("  hiring ai engineer in riyadh  apply now ")
+    harvest._remember({harvest.post_hash(a): "2099-01-01", "old": "2000-01-01"})
+    assert harvest._seen() == {harvest.post_hash(a): "2099-01-01"}     # القديم اتمسح
