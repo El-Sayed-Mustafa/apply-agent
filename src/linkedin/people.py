@@ -139,6 +139,14 @@ def parse_card(lines: list[str]) -> tuple[str, str]:
     return name[:120], headline[:200]
 
 
+class CompanyGone(Exception):
+    """
+    صفحة الشركة بتحوّل لـ/company/unavailable/ — الـslug اتغيّر أو اتشال.
+    17 نوفمبر: Lean Tech غيّرت leantechme → leantechnologies، والمهمة فضلت
+    أيام تقول "مفيش مرشحين جداد" من غير ما حد يعرف ليه.
+    """
+
+
 def company_people(page, slug: str, want: int = 25,
                    keywords: str = "") -> list[dict]:
     """
@@ -157,6 +165,8 @@ def company_people(page, slug: str, want: int = 25,
     page.goto(url, wait_until="domcontentloaded", timeout=30_000)
     human_pause(5, 9)
     guard(page)
+    if "/company/unavailable" in (page.url or ""):
+        raise CompanyGone(slug)
 
     seen: dict[str, dict] = {}
     for _ in range(5):

@@ -80,6 +80,17 @@ def url_of(company: dict, keywords: str) -> str:
     return u + (f"?keywords={quote(keywords)}" if keywords else "")
 
 
+def _warn_gone(company: dict) -> None:
+    """رسالة على تليجرام: صفحة شركة مستهدفة اتشالت. الفشل هنا مش قاتل."""
+    try:
+        from . import telegram
+        telegram.send(f"⚠️ صفحة <b>{telegram.esc(company['name'])}</b> على لينكدإن مش موجودة "
+                      f"(<code>{telegram.esc(company['linkedin_slug'])}</code>). "
+                      "طلبات التواصل مع ناسها واقفة لحد ما الـslug يتحدّث — قولّي وأنا أظبطه.")
+    except Exception:
+        pass
+
+
 def gather(page, db, companies: list[dict], need: int) -> list[dict]:
     """اسحب مرشحين جداد من صفحات الشركات، مفلترين ومرتبين بالأولوية."""
     seen = known_keys(db)
@@ -99,6 +110,12 @@ def gather(page, db, companies: list[dict], need: int) -> list[dict]:
                     page, c["linkedin_slug"], want=want, keywords=kw)
             except Blocked:
                 raise
+            except people.CompanyGone:
+                # مش هنحاول الكلمات التانية على صفحة مش موجودة — وبلّغ مرة
+                print(f"   ⚠️ صفحة {c['name']} على لينكدإن اتشالت "
+                      f"(linkedin.com/company/{c['linkedin_slug']}) — الـslug محتاج يتحدّث")
+                _warn_gone(c)
+                break
             except Exception as exc:
                 print(f"   (تخطّينا {c['name']}/{kw or 'all'} — {type(exc).__name__})")
                 continue
