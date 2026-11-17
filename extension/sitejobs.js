@@ -84,8 +84,10 @@
           // شركة واحدة فوق كذا وظيفة: الاسم في لينك /company/ في راس الكارت
           let up = a;
           for (let i = 0; i < 15 && up && !company; i++, up = up.parentElement) {
-            const c = up.querySelector && up.querySelector('a[href*="/company/"]');
-            if (c) company = (c.innerText || "").trim().split("\n")[0].slice(0, 120);
+            // أول لينك /company/ هو اللوجو (صورة من غير نص) — خد أول واحد فيه اسم
+            const c = up.querySelectorAll ? Array.from(up.querySelectorAll('a[href*="/company/"]'))
+              .find((x) => (x.innerText || "").trim()) : null;
+            if (c) company = c.innerText.trim().split("\n")[0].slice(0, 120);
           }
         }
         out.push({

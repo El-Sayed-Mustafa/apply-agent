@@ -166,3 +166,14 @@ def test_wellfound_salary_and_equity_lines_are_not_companies():
         j = sitejobs.to_job({"site": "wellfound", "url": "https://wellfound.com/jobs/2-ai",
                              "title": "AI Engineer", "card": card})
         assert j.company_name == "wellfound" and j.location in ("Dubai+1", "United States")
+
+
+def test_same_fingerprint_twice_in_one_page_is_saved_once(tmp_path, monkeypatch):
+    # حصل على Wellfound: وظيفتين "AI Engineer | wellfound | Everywhere" بلينكين مختلفين
+    monkeypatch.setattr(sitejobs, "LOG", tmp_path / "log.jsonl")
+    card = "AI Engineer\nFull-time\nRemote only • Everywhere"
+    page = {"site": "wellfound", "page": "https://wellfound.com/role/r/ai", "jobs": [
+        {"url": "https://wellfound.com/jobs/1-ai-engineer", "title": "AI Engineer", "card": card},
+        {"url": "https://wellfound.com/jobs/2-ai-engineer", "title": "AI Engineer", "card": card}]}
+    r = sitejobs.ingest_pages(page, dry=True, quiet=True)
+    assert r["sites"]["wellfound"]["read"] == 1

@@ -194,9 +194,10 @@ def ingest_pages(pages, dry: bool = False, quiet: bool = False) -> dict:
         for item in page.get("jobs") or []:
             item.setdefault("site", site)
             j = to_job(item)
-            if not j or j.url in seen:
+            # نفس البصمة مرتين في نفس الدفعة = الحفظ كله يقع (content_hash فريد)
+            if not j or j.url in seen or j.content_hash in seen:
                 continue
-            seen.add(j.url)
+            seen.update((j.url, j.content_hash))
             s["read"] += 1
             if targeting.evaluate(_Row(j)).eligible:
                 s["kept"] += 1

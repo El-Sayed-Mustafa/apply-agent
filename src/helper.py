@@ -186,6 +186,10 @@ class Handler(BaseHTTPRequestHandler):
                 r = sitejobs.ingest_pages(payload, quiet=True)
                 return self._send(200, {"ok": True, "kept": r["kept"], "saved": r["saved"]})
             except Exception as exc:
+                # pythonw مالوش شاشة — من غير السطر ده العطل بيبقى صامت
+                with Path("state/helper-errors.log").open("a", encoding="utf-8") as f:
+                    f.write(f"{datetime.now(timezone.utc).isoformat()} /sitejobs "
+                            f"{payload.get('page')}: {type(exc).__name__}: {str(exc)[:300]}\n")
                 return self._send(500, {"error": f"{type(exc).__name__}"})
         if path != "/submitted":
             return self._send(404, {"error": "مش موجود"})
