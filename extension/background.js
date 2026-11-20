@@ -42,3 +42,79 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   }).catch(() => reply({ error: DOWN }));
   return true;                      // الرد هييجي بعدين
 });
+
+// ── اللفة اليومية على مواقع التوظيف ───────────────────────────────────
+// قبل كده التشغيلة اليومية كانت بتفتح الصفحات بأدوات Claude in Chrome،
+// والأداة دي محتاجة موافقة — ومن غير حد قاعد اترفضت 3 أيام ورا بعض
+// (18–20 نوفمبر) والتشغيلة كلها وقفت. دلوقتي الإضافة بتلف لوحدها مرة
+// في اليوم: شباك صغير متصغّر، صفحة كل نص دقيقة، وتقفله. بتقرا بس —
+// sitejobs-content.js هو اللي بيبعت الكروت، زي ما بيحصل لو فتحتها بإيدك.
+const SWEEP_AT = [9, 30];           // 9:30 بتوقيت الجهاز، قبل تشغيلة 10:09
+const STEP_MIN = 0.5;
+
+function today() {
+  return new Date().toLocaleDateString("en-CA");
+}
+
+function scheduleSweep() {
+  const t = new Date();
+  t.setHours(SWEEP_AT[0], SWEEP_AT[1], 0, 0);
+  if (t.getTime() <= Date.now()) t.setDate(t.getDate() + 1);
+  chrome.alarms.create("sweep", { when: t.getTime(), periodInMinutes: 24 * 60 });
+  // كروم كان مقفول وقت اللفة؟ نلحقها بعد ما يفتح بدقيقتين
+  chrome.alarms.create("sweep-catchup", { delayInMinutes: 2 });
+}
+
+chrome.runtime.onInstalled.addListener(scheduleSweep);
+chrome.runtime.onStartup.addListener(scheduleSweep);
+
+async function startSweep(force) {
+  const st = await chrome.storage.local.get(["lastSweep", "sweep"]);
+  if (st.sweep && Date.now() - st.sweep.at < 30 * 60e3) return;   // لفة شغالة (أو واقعة من نص ساعة)
+  if (!force && st.lastSweep === today()) return;        // مرة في اليوم
+  const cfg = self.APPLY_AGENT;
+  if (!cfg) return;
+  let urls;
+  try {
+    const r = await fetch(cfg.url + "/sitejobs/urls", { headers: { "X-Token": cfg.token } });
+    urls = (await r.json()).urls || [];
+  } catch (e) {
+    return;                                              // المساعد واقف — نحاول المرة الجاية
+  }
+  if (!urls.length) return;
+  const win = await chrome.windows.create({ url: urls[0], focused: false, state: "minimized" });
+  await chrome.storage.local.set({
+    lastSweep: today(),
+    sweep: { urls, i: 0, windowId: win.id, tabId: win.tabs[0].id, at: Date.now() },
+  });
+  chrome.alarms.create("sweep-step", { delayInMinutes: STEP_MIN });
+}
+
+async function stepSweep() {
+  const { sweep } = await chrome.storage.local.get("sweep");
+  if (!sweep) return;
+  sweep.i += 1;
+  try {
+    if (sweep.i >= sweep.urls.length) throw new Error("done");
+    await chrome.tabs.update(sweep.tabId, { url: sweep.urls[sweep.i] });
+    await chrome.storage.local.set({ sweep });
+    chrome.alarms.create("sweep-step", { delayInMinutes: STEP_MIN });
+  } catch (e) {
+    // خلصت، أو الشباك اتقفل بإيدك — في الحالتين نخلّص
+    await chrome.storage.local.remove("sweep");
+    chrome.windows.remove(sweep.windowId).catch(() => {});
+  }
+}
+
+chrome.alarms.onAlarm.addListener((a) => {
+  if (a.name === "sweep") startSweep(false);
+  else if (a.name === "sweep-catchup") {
+    // أول مرة خالص (لسه متلفّتش ولا مرة) بتلف على طول — ده كمان اختبار الـReload
+    const now = new Date();
+    chrome.storage.local.get("lastSweep").then(({ lastSweep }) => {
+      if (!lastSweep || now.getHours() * 60 + now.getMinutes() >= SWEEP_AT[0] * 60 + SWEEP_AT[1]) {
+        startSweep(false);
+      }
+    });
+  } else if (a.name === "sweep-step") stepSweep();
+});

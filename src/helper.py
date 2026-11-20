@@ -159,6 +159,10 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path == "/ping":
             return self._send(200, {"ok": True})
+        if u.path == "/sitejobs/urls":
+            # صفحات البحث اللي الإضافة بتلف عليها كل يوم (src/sitejobs.SEARCHES)
+            from . import sitejobs
+            return self._send(200, {"urls": [url for _, url in sitejobs.SEARCHES]})
         if u.path == "/pack":
             page = (parse_qs(u.query).get("url") or [""])[0]
             found = find_state(page)

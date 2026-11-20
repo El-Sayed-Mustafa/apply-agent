@@ -1,11 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Apply Agent",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Fills job application forms from your prepared answers. You review and press Submit yourself.",
   "background": {
     "service_worker": "background.js"
   },
+  "permissions": [
+    "alarms",
+    "storage"
+  ],
   "host_permissions": [
     "http://127.0.0.1:8765/*"
   ],

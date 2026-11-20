@@ -291,6 +291,10 @@ class _Q:
         self._range = (a, b)
         return self
 
+    def limit(self, n):
+        self._range = (0, n - 1)
+        return self
+
     def execute(self):
         rows = self.rows
         if self._range:
@@ -367,7 +371,8 @@ def test_descriptions_fetched_only_for_jobs_that_could_pass():
                 real = q.in_
 
                 def spy(col, vals):
-                    asked.extend(vals)
+                    if col == "id":              # مش فلتر المصدر
+                        asked.extend(vals)
                     return real(col, vals)
                 q.in_ = spy
             return q
@@ -410,3 +415,26 @@ def test_scorer_sees_skill_levels_but_never_contact_details():
 def test_schema_asks_for_facts():
     assert "facts" in scoring.SCHEMA["required"]
     assert "ai_training_gig" in scoring.EMPLOYMENT
+
+
+def test_gulf_and_local_sources_are_scored_before_global_feeds(monkeypatch):
+    """
+    اتقاس 21 نوفمبر: 400+ وظيفة مستنية، والأحدث كانت دايمًا من Lever
+    وGreenhouse — فوظايف Bayt وLinkedIn الخليج ماكانتش بتوصل للتقييم.
+    """
+    monkeypatch.setattr(scoring.targeting, "evaluate",
+                        lambda job: type("E", (), {"eligible": True})())
+    jobs = [
+        {"id": 9, "ats": "lever", "company_name": "A", "title": "AI Engineer",
+         "location": "Berlin, Germany", "remote_type": "onsite", "description": "d"},
+        {"id": 8, "ats": "greenhouse", "company_name": "B", "title": "AI Engineer",
+         "location": "Remote", "remote_type": "remote", "description": "d"},
+        {"id": 7, "ats": "ashby", "company_name": "C", "title": "AI Engineer",
+         "location": "Dubai, UAE", "remote_type": "onsite", "description": "d"},
+        {"id": 6, "ats": "bayt", "company_name": "D", "title": "AI Engineer",
+         "location": "", "remote_type": "unknown", "description": "d",
+         "first_seen_at": "2999-01-01"},
+    ]
+    monkeypatch.setattr(scoring.targeting, "could_pass", lambda *a: True)
+    got = [j["id"] for j in scoring.pending(_DB(jobs=jobs, scores=[]), 3)]
+    assert got == [7, 6, 8]

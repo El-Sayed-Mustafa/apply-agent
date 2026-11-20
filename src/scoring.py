@@ -462,37 +462,69 @@ def pending(db, limit: int) -> list[dict]:
         .gte("attempts", MAX_ATTEMPTS).order("job_id"))}
 
     skip = scored | burned
-    out, start = [], 0
 
-    while len(out) < limit:
-        # على مرحلتين عشان نقل البيانات: الأوصاف هي الحجم كله، وأغلب
-        # الوظايف بتترفض من العنوان أو المكان. فالصفحة بتيجي من غير
-        # وصف، والوصف بيتجاب بس للي عدّى الشرط اللازم.
-        rows = (db.table("jobs")
-                .select("id,company_name,title,location,remote_type")
+    # على مرحلتين عشان نقل البيانات: الأوصاف هي الحجم كله، وأغلب
+    # الوظايف بتترفض من العنوان أو المكان. فالصفحات بتيجي من غير وصف
+    # (آخر SCAN_ROWS وظيفة)، والوصف بيتجاب بس للي عدّى الشرط اللازم.
+    cols = "id,ats,company_name,title,location,remote_type"
+    # GitHub بيحفظ 3500–8000 وظيفة في اليوم من فيدز العالم، فآخر 3000
+    # صف بيغطّوا ساعات بس. المصادر المحلية (لينكدإن ومواقع التوظيف)
+    # بتتجاب لوحدها بالمصدر، آخر 14 يوم، وبعدين أحدث SCAN_ROWS للباقي.
+    from datetime import datetime, timedelta, timezone
+    since = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+    rows = (db.table("jobs").select(cols)
+            .in_("ats", sorted(PRIORITY_SOURCES)).gte("first_seen_at", since)
+            .order("id", desc=True).limit(1000).execute().data)
+    cands = [r for r in rows if r["id"] not in skip and _could_pass(r)]
+    have, start = {r["id"] for r in cands}, 0
+    while start < SCAN_ROWS:
+        rows = (db.table("jobs").select(cols)
                 .order("id", desc=True).range(start, start + 499)
                 .execute().data)
         if not rows:
             break
         start += 500
+        cands += [r for r in rows if r["id"] not in skip and r["id"] not in have
+                  and _could_pass(r)]
 
-        maybe = [r["id"] for r in rows
-                 if r["id"] not in skip and _could_pass(r)]
-        if not maybe:
-            continue
+    # الخليج ومصر ومواقع التوظيف الأول، بعدين الريموت، بعدين الباقي —
+    # الأحدث الأول جوّه كل مجموعة. من غير الترتيب ده، فيدز العالم (Lever،
+    # Greenhouse) كانت بتاخد الحصة كلها ووظايف Bayt وLinkedIn الخليج
+    # فضلت مستنية من غير تقييم (اتقاس 21 نوفمبر: 400+ في الطابور).
+    cands.sort(key=lambda r: (_priority(r), -r["id"]))
+
+    out, step = [], max(limit * 2, 50)
+    for i in range(0, len(cands), step):
+        chunk = cands[i:i + step]
         desc = {d["id"]: d.get("description") or "" for d in
                 db.table("jobs").select("id,description")
-                .in_("id", maybe).execute().data}
-
-        for r in rows:
+                .in_("id", [r["id"] for r in chunk]).execute().data}
+        for r in chunk:
             if r["id"] not in desc:
                 continue
             r = {**r, "description": desc[r["id"]]}
             if targeting.evaluate(_as_job(r)).eligible:
                 out.append(r)
                 if len(out) >= limit:
-                    break
+                    return out
     return out
+
+
+SCAN_ROWS = int(os.getenv("SCORE_SCAN_ROWS", "3000"))     # ~أسبوع من الوظايف
+# بتتجاب بالمصدر (قليلة وسط آلاف الفيدز)
+PRIORITY_SOURCES = {"linkedin_job", "linkedin_post", "wuzzuf", "bayt", "gulftalent",
+                    "indeed", "naukrigulf", "wellfound"}
+# ودول كلهم خليج/مصر من الأساس، حتى لو المكان مش مكتوب. المنشورات
+# وWellfound من كل حتة، فبيتحكم عليهم بالمكان زي الباقي.
+LOCAL_SOURCES = {"linkedin_job", "wuzzuf", "bayt", "gulftalent", "indeed", "naukrigulf"}
+
+
+def _priority(row: dict) -> int:
+    """0 = الخليج/مصر · 1 = ريموت · 2 = الباقي."""
+    country, _ = targeting.detect_country(row.get("location"))
+    if row.get("ats") in LOCAL_SOURCES or country in GULF_EGYPT:
+        return 0
+    return 1 if row.get("remote_type") == "remote" else 2
 
 
 FACTS_COLUMN = [True]          # بيتقفل لوحده لو العمود مش موجود
