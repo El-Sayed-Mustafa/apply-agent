@@ -246,3 +246,47 @@ def test_email_post_keeps_the_post_link_the_email_and_the_subject():
     # من غير لينك منشور: mailto أحسن من بروفايل اللي نشر
     j2 = harvest.to_job(dict(post, post_url=""), {"title": "x", "apply": "a@b.com"})
     assert j2.url == "mailto:a@b.com"
+
+
+# ── 21 نوفمبر: المنشورات على دفعات ──────────────────────────────────────
+
+class _FakeModels:
+    def __init__(self, reply=None, exc=None):
+        self.reply, self.exc, self.calls = reply, exc, []
+
+    def generate_content(self, model, contents, config):
+        self.calls.append(contents)
+        if self.exc:
+            raise self.exc
+        return type("R", (), {"text": self.reply})()
+
+
+def test_one_request_reads_a_whole_batch_and_answers_line_up():
+    """125 منشور كانوا 125 طلب وبياكلوا حصة Gemini قبل التقييم."""
+    import json
+    item = {"title": "AI Engineer", "company": "Acme", "location": "Dubai",
+            "remote_type": "onsite", "apply": "", "summary": "s"}
+    reply = json.dumps({"posts": [
+        {"n": 2, "is_job": True, **item},
+        {"n": 1, "is_job": False, **{**item, "title": ""}},
+        {"n": 9, "is_job": True, **item},                 # رقم مش موجود — يتجاهل
+        {"n": 3, "is_job": True, **{**item, "title": "  "}},
+    ]})
+    m = _FakeModels(reply)
+    client = type("C", (), {"models": m})()
+    posts = [{"text": f"post {i}"} for i in range(3)]
+    out, err = harvest.extract_batch(client, posts, models=["m"])
+    assert err == "" and len(m.calls) == 1
+    assert out[0] is None and out[1]["company"] == "Acme" and out[2] is None
+    assert "[1]" in m.calls[0] and "[3]" in m.calls[0] and "قايمة وظايف" in m.calls[0]
+
+
+def test_a_failed_batch_is_not_marked_as_asked():
+    m = _FakeModels(exc=ValueError("400 INVALID_ARGUMENT bad request"))
+    client = type("C", (), {"models": m})()
+    out, err = harvest.extract_batch(client, [{"text": "x"}], models=["m"])
+    assert out is None and "INVALID_ARGUMENT" in err
+    import inspect
+    src = inspect.getsource(harvest.run)
+    # الحفظ في seen بيحصل بعد ما الدفعة ترجع، مش قبلها
+    assert src.index("extract_batch(") < src.index("seen[post_hash(")

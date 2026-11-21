@@ -487,11 +487,23 @@ def pending(db, limit: int) -> list[dict]:
         cands += [r for r in rows if r["id"] not in skip and r["id"] not in have
                   and _could_pass(r)]
 
+    # نفس الإعلان اتقيّم قبل كده برقم تاني (RemoteOK بيعيد النشر كل يوم:
+    # "Platform and Integration Engineer" اتقيّم 7 مرات في أسبوع) —
+    # مايروحش للموديل، التقييم بيتنسخ في run().
+    index = recent_postings(db)
+    pending.repeats = [(r, index[_posting_key(r)]) for r in cands
+                       if _posting_key(r) in index]
+    rep = {r["id"] for r, _ in pending.repeats}
+    cands = [r for r in cands if r["id"] not in rep]
+
     # الخليج ومصر ومواقع التوظيف الأول، بعدين الريموت، بعدين الباقي —
     # الأحدث الأول جوّه كل مجموعة. من غير الترتيب ده، فيدز العالم (Lever،
     # Greenhouse) كانت بتاخد الحصة كلها ووظايف Bayt وLinkedIn الخليج
     # فضلت مستنية من غير تقييم (اتقاس 21 نوفمبر: 400+ في الطابور).
-    cands.sort(key=lambda r: (_priority(r), -r["id"]))
+    # و"Senior" في العنوان آخر كل مجموعة: مش بنرميها (Mozn)، بس من 98
+    # وظيفة Senior اتقيّمت 1–21 نوفمبر، 2 بس وصلوا 70.
+    cands.sort(key=lambda r: (_priority(r), bool(_SENIOR.search(r.get("title") or "")),
+                              -r["id"]))
 
     out, step = [], max(limit * 2, 50)
     for i in range(0, len(cands), step):
@@ -517,6 +529,64 @@ PRIORITY_SOURCES = {"linkedin_job", "linkedin_post", "wuzzuf", "bayt", "gulftale
 # ودول كلهم خليج/مصر من الأساس، حتى لو المكان مش مكتوب. المنشورات
 # وWellfound من كل حتة، فبيتحكم عليهم بالمكان زي الباقي.
 LOCAL_SOURCES = {"linkedin_job", "wuzzuf", "bayt", "gulftalent", "indeed", "naukrigulf"}
+
+
+REPEAT_DAYS = 30
+pending.repeats = []
+_SENIOR = re.compile(r"\b(?:senior|sr\.?)\b", re.I)
+
+
+def _posting_key(row: dict) -> tuple[str, str, str]:
+    """نفس الشركة + نفس المسمى + نفس المدينة = نفس الإعلان."""
+    def norm(s):
+        return re.sub(r"[\W_]+", " ", str(s or "").lower()).strip()
+    return (norm(row.get("company_name")), norm(row.get("title")),
+            norm(str(row.get("location") or "").split(",")[0]))
+
+
+def recent_postings(db) -> dict:
+    """{مفتاح الإعلان: صف التقييم} لكل اللي اتقيّم آخر REPEAT_DAYS يوم."""
+    from datetime import datetime, timedelta, timezone
+    since = (datetime.now(timezone.utc) - timedelta(days=REPEAT_DAYS)).isoformat()
+    try:
+        rows = _all(lambda: db.table("scores")
+                    .select("job_id,model,score_initial,refuter_score,score_final,"
+                            "verdict,matched,gaps,reasoning")
+                    .eq("scorer_version", SCORER_VERSION).gte("created_at", since)
+                    .order("job_id"))
+        rows = [r for r in rows if r.get("model") not in WEAK_MODELS]
+        by_id = {r["job_id"]: r for r in rows}
+        ids, out = list(by_id), {}
+        for i in range(0, len(ids), 200):
+            for j in (db.table("jobs").select("id,company_name,title,location")
+                      .in_("id", ids[i:i + 200]).execute().data):
+                out.setdefault(_posting_key(j), by_id[j["id"]])
+        return out
+    except Exception as exc:              # مايوقفش التقييم — أسوأ حالة نقيّم تاني
+        print(f"   (مقدرتش أجيب التقييمات القديمة: {type(exc).__name__})")
+        return {}
+
+
+def copy_repeats(db, repeats: list) -> int:
+    """انسخ تقييم الإعلان الأصلي للنسخة الجديدة — من غير ولا طلب."""
+    n = 0
+    for job, src in repeats:
+        try:
+            db.table("scores").upsert({
+                "job_id": job["id"], "scorer_version": SCORER_VERSION,
+                "model": "repeat", "cv_version": cv_version(),
+                "score_initial": src.get("score_initial"),
+                "refuter_score": src.get("refuter_score"),
+                "score_final": src.get("score_final"), "verdict": src.get("verdict"),
+                "matched": src.get("matched") or [], "gaps": src.get("gaps") or [],
+                "reasoning": f"نفس إعلان #{src['job_id']} — التقييم منسوخ. "
+                             f"{src.get('reasoning') or ''}"[:600],
+                "total_tokens": 0,
+            }, on_conflict="job_id,scorer_version").execute()
+            n += 1
+        except Exception as exc:
+            print(f"   ✗ نسخ #{job['id']} — {type(exc).__name__}")
+    return n
 
 
 def _priority(row: dict) -> int:
@@ -590,8 +660,11 @@ def run(db, limit: int = BATCH) -> dict:
         return {"error": "مفيش GEMINI_API_KEY"}
 
     jobs = pending(db, limit)
+    copied = copy_repeats(db, pending.repeats)
+    if copied:
+        print(f"   ({copied} إعلان متكرر — التقييم اتنسخ من غير ما نسأل الموديل)")
     if not jobs:
-        return {"pending": 0, "scored": 0, "failed": 0, "tokens": 0}
+        return {"pending": 0, "scored": 0, "failed": 0, "tokens": 0, "copied": copied}
 
     client = genai_pool.client()
     cv_text = load_cv()
@@ -684,7 +757,7 @@ def run(db, limit: int = BATCH) -> dict:
             print(f"   ✗ حفظ فشل — {type(exc).__name__}: {exc}"[:150])
             _note_failure(db, job["id"], f"save: {exc}")
 
-    return {"pending": len(jobs), "scored": scored, "failed": failed,
+    return {"pending": len(jobs), "scored": scored, "failed": failed, "copied": copied,
             "refuted": refuted, "refute_on": REFUTE,
             "cv_version": cv_fingerprint,
             "tokens": tokens, "seconds": round(time.time() - started),

@@ -137,6 +137,24 @@ roles:
 
     # ── أدوار فوق مستواك دلوقتي ──
     # Staff و Principal و Lead دايمًا بتعني 8+ سنين — مفيش استثناءات.
+    # ── 21 نوفمبر: من تقييمات أسبوع كامل تحت 40 ──
+    # شغل تعليم موديلات وتصنيف بيانات متنكّر في مسمى AI
+    - "\\bannotat"
+    - "content\\s+review"
+    - "talent\\s+pool"
+    - "coding\\s+tasks"
+    - "\\bdata\\s+specialist\\b"
+    # برامج طلبة وبحث أكاديمي
+    - "\\bco-?op\\b"
+    - "\\bresidency\\b"
+    - "\\bph\\.?d\\b"
+    - "\\bresearcher\\b"
+    # المسمى نفسه بيطلب لغة غير العربي والإنجليزي ("AI Data Specialist - Swedish")
+    - "\\b(?:swedish|norwegian|finnish|danish|croatian|german|french|japanese|spanish|portuguese|italian|dutch|polish|korean|mandarin|chinese|turkish|hebrew|russian)\\b"
+    # المسمى محصور في بلد: "Software Engineer (Canada)"، "(USA) Senior…"
+    - "\\((?:usa?|us\\s+only|canada|brazil|mexico|uk|india|latam|europe|eu)\\)"
+    - "\\b(?:us|usa)\\s+only\\b"
+
     - "\\b(?:staff|principal|distinguished|architect)\\b"
     - "\\b(?:tech\\s+)?lead\\b"
     - "\\bmanager\\b"

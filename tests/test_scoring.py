@@ -438,3 +438,21 @@ def test_gulf_and_local_sources_are_scored_before_global_feeds(monkeypatch):
     monkeypatch.setattr(scoring.targeting, "could_pass", lambda *a: True)
     got = [j["id"] for j in scoring.pending(_DB(jobs=jobs, scores=[]), 3)]
     assert got == [7, 6, 8]
+
+
+def test_a_reposted_job_copies_its_old_score_instead_of_asking(monkeypatch):
+    """RemoteOK: "Platform and Integration Engineer" اتقيّم 7 مرات في أسبوع."""
+    monkeypatch.setattr(scoring.targeting, "evaluate",
+                        lambda job: type("E", (), {"eligible": True})())
+    monkeypatch.setattr(scoring.targeting, "could_pass", lambda *a: True)
+    v = scoring.SCORER_VERSION
+    old = {"id": 1, "company_name": "Acme", "title": "Platform Engineer",
+           "location": "Remote", "remote_type": "remote", "description": "d"}
+    new = {**old, "id": 2, "title": "Platform  Engineer!"}        # نفس الإعلان
+    other = {**old, "id": 3, "title": "AI Engineer"}
+    db = _DB(jobs=[old, new, other],
+             scores=[{"job_id": 1, "model": "gemini-3.6-flash", "scorer_version": v,
+                      "created_at": "2999-01-01", "score_final": 33, "verdict": "weak"}])
+    got = [j["id"] for j in scoring.pending(db, 10)]
+    assert got == [3]
+    assert [(j["id"], s["score_final"]) for j, s in scoring.pending.repeats] == [(2, 33)]

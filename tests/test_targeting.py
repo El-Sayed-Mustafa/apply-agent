@@ -135,9 +135,14 @@ def test_remote_anywhere_passes():
     assert v.eligible and v.reason == "ريموت"
 
 
-def test_germany_onsite_passes():
-    """المستوى 2 — بيرعوا تأشيرات فعلاً."""
-    assert targeting.evaluate(job(location="Berlin, Germany")).eligible
+def test_germany_onsite_needs_the_posting_to_mention_visa_or_relocation():
+    """
+    المستوى 2 حضوري بيعدّي بس لو الإعلان قال فيزا أو انتقال. من غيره،
+    1–21 نوفمبر: 25 وظيفة أوروبا/كندا/بريطانيا حضوري ومفيش ولا واحدة وصلت 70.
+    """
+    assert not targeting.evaluate(job(location="Berlin, Germany")).eligible
+    assert targeting.evaluate(job(location="Berlin, Germany",
+                                  desc="We offer a relocation package.")).eligible
 
 
 def test_us_onsite_rejected():
@@ -146,10 +151,18 @@ def test_us_onsite_rejected():
     assert not v.eligible and "ريموت بس" in v.reason
 
 
-def test_us_remote_passes():
-    """نفس الشركة، وظيفة ريموت — تعدّي."""
-    assert targeting.evaluate(
-        job(location="United States", remote="remote")).eligible
+def test_remote_inside_one_country_is_rejected_unless_open():
+    """
+    "Remote · United States" = ريموت جوّه أمريكا. اتقيّموا كلهم 20–35
+    (14–21 نوفمبر). بيعدّي بس لو الإعلان قال إنه مفتوح لأي مكان.
+    """
+    v = targeting.evaluate(job(location="United States", remote="remote"))
+    assert not v.eligible and "ريموت محصور" in v.reason
+    assert not targeting.evaluate(job(location="LATAM", remote="remote")).eligible
+    assert targeting.evaluate(job(location="United States", remote="remote",
+                                  desc="Fully remote, hire from anywhere.")).eligible
+    for ok in ("Remote", "Anywhere in the World", "Dubai, UAE", "EMEA", ""):
+        assert targeting.evaluate(job(location=ok, remote="remote")).eligible, ok
 
 
 def test_blocked_text_rejects_even_in_gulf():

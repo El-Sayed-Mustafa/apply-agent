@@ -379,6 +379,72 @@ def extract(client, post: dict, models: list[str] | None = None) -> tuple[dict |
     return None, last or "كل الموديلات فشلت"
 
 
+# ── على دفعات ──────────────────────────────────────────────────────────
+# الحصة المجانية بتتعدّ بالطلبات مش بالكلام: 125 منشور في اليوم كانوا
+# 125 طلب وبياكلوا أغلب حصة Gemini قبل التقييم (اتقاس 21 نوفمبر). 8
+# منشورات في الطلب = نفس الشغل بـ16 طلب.
+BATCH_POSTS = int(os.getenv("HARVEST_BATCH", "8"))
+POST_CHARS = 3500
+
+RULES = PROMPT.rsplit("المنشور:\n", 1)[0]      # "لو المنشور:" موجودة فوق كمان
+
+BATCH_SCHEMA = {
+    "type": "object",
+    "properties": {"posts": {"type": "array", "items": {
+        "type": "object",
+        "properties": {"n": {"type": "integer", "description": "رقم المنشور زي ما هو مكتوب [n]"},
+                       **SCHEMA["properties"]},
+        "required": ["n", *SCHEMA["required"]],
+    }}},
+    "required": ["posts"],
+}
+
+
+def batch_prompt(posts: list[dict]) -> str:
+    body = "\n\n".join(f"[{i}]\n---\n{p['text'][:POST_CHARS]}\n---"
+                       for i, p in enumerate(posts, 1))
+    return (f"{RULES}\nتحت {len(posts)} منشور، كل واحد برقمه [n]. رجّع في posts عنصر "
+            "واحد لكل منشور بنفس رقمه — كل منشور لوحده، متدمجش اتنين ومتنقلش "
+            f"معلومة من منشور لمنشور.\n\n{body}")
+
+
+def extract_batch(client, posts: list[dict],
+                  models: list[str] | None = None) -> tuple[list[dict | None] | None, str]:
+    """
+    (بيانات كل منشور بالترتيب — None للي مش وظيفة، الخطأ). لو الطلب كله
+    فشل بترجع (None، السبب) والمنشورات دي بتتسأل تاني التشغيلة الجاية.
+    """
+    import json
+    cfg = types.GenerateContentConfig(
+        response_mime_type="application/json", response_schema=BATCH_SCHEMA)
+    last = ""
+    for model in (models or MODELS):
+        for attempt in range(API_RETRIES):
+            try:
+                r = client.models.generate_content(
+                    model=model, contents=batch_prompt(posts), config=cfg)
+            except Exception as exc:
+                msg = str(exc)
+                last = f"{type(exc).__name__}: {msg[:90]}"
+                if _is_daily_quota(msg) or not genai_pool.is_transient(msg):
+                    break
+                time.sleep((_retry_delay(msg) or 2 ** attempt) + 0.5)
+                continue
+            try:
+                items = json.loads(r.text).get("posts") or []
+            except Exception as exc:
+                last = f"رد مش JSON: {exc}"
+                break
+            out: list[dict | None] = [None] * len(posts)
+            for it in items:
+                n = it.get("n")
+                if isinstance(n, int) and 1 <= n <= len(posts) and it.get("is_job") \
+                        and (it.get("title") or "").strip():
+                    out[n - 1] = it
+            return out, ""
+    return None, last or "كل الموديلات فشلت"
+
+
 class _Row:
     """أقل شكل تحتاجه targeting.evaluate."""
 
@@ -508,39 +574,49 @@ def run(dry: bool = False, limit: int = MAX_POSTS) -> dict:
     client = genai_pool.client()
     jobs, skipped = [], 0
 
-    asked = repeat = 0
+    asked = repeat = calls = 0
     seen = _seen()
     today = datetime.now(timezone.utc).date().isoformat()
+    todo = []
     for p in posts:
         if not worth_asking(p["text"]):
             skipped += 1
             continue
         h = post_hash(p["text"])
-        if h in seen:
+        if h in seen or h in {post_hash(t["text"]) for t in todo}:
             repeat += 1                 # اتسأل عنه في تشغيلة قبل كده
             continue
-        seen[h] = today
-        if asked:
+        todo.append(p)
+
+    for i in range(0, len(todo), BATCH_POSTS):
+        chunk = todo[i:i + BATCH_POSTS]
+        if calls:
             time.sleep(PACE)
-        asked += 1
-        data, err = extract(client, p)
-        if not data:
-            skipped += 1
-            if err:
-                print(f"   ⚠ {p['author'][:18]:<20}{err[:60]}")
+        calls += 1
+        results, err = extract_batch(client, chunk)
+        if results is None:
+            # مش بنفتكرهم — يتسألوا تاني التشغيلة الجاية
+            skipped += len(chunk)
+            print(f"   ⚠ {len(chunk)} منشور: {err[:70]}")
             continue
-        j = to_job(p, data)
-        # الدور والأهلية الاتنين. الوظيفة من منشور إحنا اللي
-        # بنركّبها، فمالهاش قيمة كتالوج تخلّينا نحتفظ باللي
-        # مايعديش — والضجيج بيوصل لجغرافيا زي Chennai و Tokyo.
-        verdict = targeting.evaluate(_Row(j))
-        if not verdict.eligible:
-            skipped += 1
-            print(f"   ↷ {j.title[:42]:<44}{verdict.reason[:28]}")
-            continue
-        jobs.append(j)
-        print(f"   ✅ {j.title[:42]:<44}{(j.company_name or '')[:22]:<24}"
-              f"{j.location or '—'}")
+        asked += len(chunk)
+        for p, data in zip(chunk, results):
+            seen[post_hash(p["text"])] = today
+            if not data:
+                skipped += 1
+                continue
+            j = to_job(p, data)
+            # الدور والأهلية الاتنين. الوظيفة من منشور إحنا اللي
+            # بنركّبها، فمالهاش قيمة كتالوج تخلّينا نحتفظ باللي
+            # مايعديش — والضجيج بيوصل لجغرافيا زي Chennai و Tokyo.
+            verdict = targeting.evaluate(_Row(j))
+            if not verdict.eligible:
+                skipped += 1
+                print(f"   ↷ {j.title[:42]:<44}{verdict.reason[:28]}")
+                continue
+            jobs.append(j)
+            print(f"   ✅ {j.title[:42]:<44}{(j.company_name or '')[:22]:<24}"
+                  f"{j.location or '—'}")
 
     jobs = dedupe(jobs)
     if not dry:
@@ -550,11 +626,12 @@ def run(dry: bool = False, limit: int = MAX_POSTS) -> dict:
     if jobs and not dry:
         saved = save(get_client(), jobs)
 
-    print(f"\n📊 {len(posts)} منشور · {asked} اتسألوا · {repeat} اتسألوا قبل كده · "
+    print(f"\n📊 {len(posts)} منشور · {asked} اتسألوا في {calls} طلب · {repeat} اتسألوا قبل كده · "
           f"{len(jobs)} وظيفة · {skipped} مستبعد · {len(saved)} جديدة")
     if dry:
         print("(--dry-run: مفيش حفظ)")
-    return {"posts": len(posts), "feed": len(feed), "asked": asked, "repeat": repeat,
+    return {"posts": len(posts), "feed": len(feed), "asked": asked, "calls": calls,
+            "repeat": repeat,
             "jobs": len(jobs), "saved": len(saved)}
 
 

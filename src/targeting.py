@@ -234,6 +234,11 @@ def evaluate(job) -> Verdict:
     if elig == "local_only":
         return out(False, f"محلي فقط: {reason}")
     if is_remote:
+        # ريموت بس جوّه بلد/منطقة تانية ("USA"، "Brazil"، "LATAM") — اتقيّموا
+        # كلهم 20–35 في أسبوع 14–21 نوفمبر. إلا لو الإعلان قال صراحة إنه مفتوح.
+        where = remote_restricted(job.location)
+        if where and elig != "open":
+            return out(False, f"ريموت محصور في {where}")
         return out(True, "ريموت")
     # قاعدتك (16 نوفمبر): أي دولة — حتى أمريكا — بشرط إن الشركة تعمل
     # الفيزا والانتقال. الإعلان لازم يقولها صراحة؛ السكوت مش كفاية برّه القايمة.
@@ -243,7 +248,36 @@ def evaluate(job) -> Verdict:
         return out(False, f"دولة برّه القايمة: {job.location or '؟'}")
     if tier == 4:
         return out(False, f"{country} — حضوري صعب، ريموت بس")
+    # أوروبا وكندا وبريطانيا حضوري: لازم الإعلان يقول فيزا أو انتقال (اللي
+    # اتراجع فوق). من غيره، أسبوع 1–21 نوفمبر: 25 وظيفة ومفيش ولا واحدة وصلت 70.
+    if tier in (2, 3):
+        return out(False, f"{country} حضوري ومفيش ذكر لفيزا أو انتقال")
     return out(True, f"{country} · المستوى {tier}")
+
+_WORLDWIDE = re.compile(
+    r"\b(?:anywhere|worldwide|world\s*wide|global(?:ly)?|any\s+(?:country|location|timezone)|"
+    r"emea|mena|middle\s+east|international)\b", re.I)
+_REGION_ONLY = re.compile(
+    r"\b(?:latam|latin\s+america|north\s+america|americas|europe|european\s+union|eu|"
+    r"apac|us\s+only|usa)\b", re.I)
+
+
+def remote_restricted(location: str | None) -> str:
+    """
+    الريموت محصور في مكان مش ليك؟ رجّع اسمه، أو "" لو مفتوح أو مش واضح.
+    الخليج ومصر (المستوى 1) والكلام العام ("Remote"، "Worldwide") مفتوحين.
+    """
+    loc = location or ""
+    if not loc.strip() or _WORLDWIDE.search(loc):
+        return ""
+    country, tier = detect_country(loc)
+    if tier == 1:
+        return ""
+    if country:
+        return country
+    m = _REGION_ONLY.search(loc)
+    return m.group(0) if m else ""
+
 
 def could_pass(title: str, location: str | None, remote_type: str | None) -> bool:
     """
