@@ -456,3 +456,40 @@ def test_a_reposted_job_copies_its_old_score_instead_of_asking(monkeypatch):
     got = [j["id"] for j in scoring.pending(db, 10)]
     assert got == [3]
     assert [(j["id"], s["score_final"]) for j, s in scoring.pending.repeats] == [(2, 33)]
+
+
+# ── 21 نوفمبر: الفرز السريع قبل التقييم ────────────────────────────────
+
+class _TriageModels:
+    def __init__(self, reply=None, fail=False):
+        self.reply, self.fail, self.calls = reply, fail, []
+
+    def generate_content(self, model, contents, config):
+        self.calls.append(model)
+        if self.fail:
+            raise RuntimeError("503 UNAVAILABLE")
+        return type("R", (), {"text": self.reply})()
+
+
+def test_triage_drops_only_what_the_model_rejects_in_one_call():
+    import json
+    jobs = [{"id": i, "title": f"T{i}", "company_name": "C", "location": "Dubai",
+             "remote_type": "onsite", "description": "d"} for i in range(1, 4)]
+    reply = json.dumps({"jobs": [{"n": 1, "keep": True, "reason": "ok"},
+                                 {"n": 2, "keep": False, "reason": "needs 8 years"}]})
+    m = _TriageModels(reply)          # رقم 3 مارجعش — يعدّي (مش بنرمي من غير سبب)
+    keep, drop, calls = scoring.triage(type("C", (), {"models": m})(), jobs, models=["lite"])
+    assert [j["id"] for j in keep] == [1, 3] and calls == 1
+    assert [(j["id"], why) for j, why in drop] == [(2, "needs 8 years")]
+
+
+def test_triage_failure_lets_everything_through():
+    jobs = [{"id": 1, "title": "T", "company_name": "C", "description": "d"}]
+    m = _TriageModels(fail=True)
+    keep, drop, _ = scoring.triage(type("C", (), {"models": m})(), jobs, models=["a", "b"])
+    assert keep == jobs and drop == [] and m.calls == ["a", "b"]
+
+
+def test_triage_uses_lite_models_that_have_their_own_quota():
+    assert scoring.TRIAGE_MODELS and all("lite" in m for m in scoring.TRIAGE_MODELS)
+    assert not set(scoring.TRIAGE_MODELS) & set(scoring.MODELS)

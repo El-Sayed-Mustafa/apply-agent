@@ -20,6 +20,7 @@ import time
 from datetime import datetime, timezone
 
 import yaml
+from pathlib import Path
 from google import genai
 from google.genai import types
 
@@ -638,6 +639,111 @@ def _as_job(row: dict):
     return j
 
 
+# ── الفرز السريع ────────────────────────────────────────────────────────
+# قبل التقييم الكامل (طلب أو اتنين لكل وظيفة)، طلب واحد بيبص على 15
+# وظيفة مرة واحدة ويرمي الواضح إنه مش ليك. بموديلات Lite: حصتها منفصلة،
+# فالفرز مابياكلش من حصة التقييم. ضعيفة في التقييم الدقيق (WEAK_MODELS)،
+# بس "مستوى 8 سنين؟ تصنيف بيانات؟" سؤال سهل. ولو فشل، الكل بيعدّي.
+TRIAGE = os.getenv("SCORER_TRIAGE", "1") not in ("0", "false", "no")
+TRIAGE_MODELS = [m.strip() for m in os.getenv(
+    "TRIAGE_MODELS", "gemini-3.5-flash-lite,gemini-3.1-flash-lite").split(",") if m.strip()]
+TRIAGE_BATCH = 15
+TRIAGE_SCORE = 15
+TRIAGE_DESC = 700
+
+TRIAGE_SCHEMA = {
+    "type": "object",
+    "properties": {"jobs": {"type": "array", "items": {
+        "type": "object",
+        "properties": {"n": {"type": "integer"}, "keep": {"type": "boolean"},
+                       "reason": {"type": "string"}},
+        "required": ["n", "keep", "reason"]}}},
+    "required": ["jobs"],
+}
+
+TRIAGE_PROMPT = """You are pre-screening job postings for ONE candidate, before a detailed review.
+
+Candidate: {profile}
+
+For every job below return keep=true or keep=false with a short reason (under 12 words).
+Set keep=false ONLY when the job is clearly not a fit:
+- it requires 5+ years of experience, or a level clearly far beyond ~2 years
+- it is a different field: data labeling/annotation, sales, recruiting, pure DevOps/SRE/Kubernetes administration, embedded/C/C++/firmware, mobile, front-end only, hardware, academic research needing a PhD
+- it requires living in, or work authorization for, one specific country outside the Gulf and Egypt
+- it requires a spoken language other than English or Arabic
+- it is an internship, student or graduate program
+When in doubt, keep=true. Missing a good job costs far more than one extra review.
+
+Jobs:
+{jobs}"""
+
+
+def _triage_profile() -> str:
+    try:
+        cv = yaml.safe_load(Path(CV_PATH).read_text(encoding="utf-8"))
+        p = cv.get("profile") or {}
+        skills = (cv.get("skill_levels") or {}).get("verified") or []
+        return (f"{p.get('title')}, about {p.get('years_experience')} years of experience, "
+                f"based in {p.get('location')}, open to {', '.join(p.get('open_to') or [])}. "
+                f"Targets the Gulf, Egypt and remote roles. Skills: {', '.join(skills[:28])}.")
+    except Exception:
+        return "AI & Automation Engineer, about 2 years of experience, Cairo, Egypt."
+
+
+def _triage_text(jobs: list[dict]) -> str:
+    return "\n\n".join(
+        f"[{i}] {j.get('title')} | {j.get('company_name')} | {j.get('location') or '?'} | "
+        f"{j.get('remote_type') or '?'}\n{(j.get('description') or '')[:TRIAGE_DESC]}"
+        for i, j in enumerate(jobs, 1))
+
+
+def triage(client, jobs: list[dict], models: list[str] | None = None) -> tuple[list, list, int]:
+    """(اللي يعدّي، [(وظيفة، سبب الرفض)]، عدد الطلبات). الدفعة اللي تفشل بتعدّي كلها."""
+    cfg = types.GenerateContentConfig(
+        response_mime_type="application/json", response_schema=TRIAGE_SCHEMA)
+    profile = _triage_profile()
+    keep, drop, calls = [], [], 0
+    for i in range(0, len(jobs), TRIAGE_BATCH):
+        chunk = jobs[i:i + TRIAGE_BATCH]
+        verdict = None
+        for model in (models or TRIAGE_MODELS):
+            calls += 1
+            try:
+                r = client.models.generate_content(
+                    model=model, config=cfg,
+                    contents=TRIAGE_PROMPT.format(profile=profile, jobs=_triage_text(chunk)))
+                verdict = {it["n"]: it for it in json.loads(r.text).get("jobs") or []
+                           if isinstance(it.get("n"), int)}
+                break
+            except Exception as exc:
+                print(f"   (الفرز على {model} فشل: {type(exc).__name__}: {str(exc)[:60]})")
+        for n, job in enumerate(chunk, 1):
+            v = (verdict or {}).get(n)
+            if v and v.get("keep") is False:
+                drop.append((job, str(v.get("reason") or "")[:200]))
+            else:
+                keep.append(job)
+    return keep, drop, calls
+
+
+def record_triaged(db, dropped: list) -> int:
+    """المرفوض في الفرز بياخد صف تقييم واطي عشان مايرجعش الطابور تاني."""
+    n = 0
+    for job, why in dropped:
+        try:
+            db.table("scores").upsert({
+                "job_id": job["id"], "scorer_version": SCORER_VERSION,
+                "model": "triage", "cv_version": cv_version(),
+                "score_initial": TRIAGE_SCORE, "score_final": TRIAGE_SCORE,
+                "verdict": "no", "matched": [], "gaps": [why] if why else [],
+                "reasoning": f"اترفض في الفرز السريع: {why}"[:600], "total_tokens": 0,
+            }, on_conflict="job_id,scorer_version").execute()
+            n += 1
+        except Exception as exc:
+            print(f"   ✗ تسجيل فرز #{job['id']} — {type(exc).__name__}")
+    return n
+
+
 def _note_failure(db, job_id: int, error: str) -> None:
     try:
         prev = db.table("score_attempts").select("attempts") \
@@ -659,7 +765,8 @@ def run(db, limit: int = BATCH) -> dict:
     if not key:
         return {"error": "مفيش GEMINI_API_KEY"}
 
-    jobs = pending(db, limit)
+    # ضعف العدد للفرز: نص الدفعة تقريبًا بيترمي، والباقي يكمّل التقييم
+    jobs = pending(db, limit * 2 if TRIAGE else limit)
     copied = copy_repeats(db, pending.repeats)
     if copied:
         print(f"   ({copied} إعلان متكرر — التقييم اتنسخ من غير ما نسأل الموديل)")
@@ -667,6 +774,14 @@ def run(db, limit: int = BATCH) -> dict:
         return {"pending": 0, "scored": 0, "failed": 0, "tokens": 0, "copied": copied}
 
     client = genai_pool.client()
+    triaged = 0
+    if TRIAGE:
+        jobs, dropped, tcalls = triage(client, jobs)
+        triaged = record_triaged(db, dropped)
+        print(f"   (الفرز: {len(dropped)} اترفضوا في {tcalls} طلب Lite · {len(jobs)} يكمّلوا)")
+        for j, why in dropped[:12]:
+            print(f"   ↷ {j['title'][:40]:<42}{why[:50]}")
+        jobs = jobs[:limit]
     cv_text = load_cv()
     started = time.time()
     scored = failed = tokens = refuted = 0
@@ -758,6 +873,7 @@ def run(db, limit: int = BATCH) -> dict:
             _note_failure(db, job["id"], f"save: {exc}")
 
     return {"pending": len(jobs), "scored": scored, "failed": failed, "copied": copied,
+            "triaged": triaged,
             "refuted": refuted, "refute_on": REFUTE,
             "cv_version": cv_fingerprint,
             "tokens": tokens, "seconds": round(time.time() - started),
