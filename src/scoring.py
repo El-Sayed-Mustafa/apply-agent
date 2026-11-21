@@ -449,9 +449,14 @@ def pending(db, limit: int) -> list[dict]:
     """
     # التقييمات اللي اتعملت بموديل ضعيف مش بتتحسب كمنجَزة — بتتعاد
     # لما موديل كويس يبقى متاح.
-    rows = _all(lambda: db.table("scores").select("job_id,model")
+    rows = _all(lambda: db.table("scores").select("job_id,model,created_at")
                 .eq("scorer_version", SCORER_VERSION).order("job_id"))
-    scored = {r["job_id"] for r in rows if r.get("model") not in WEAK_MODELS}
+    # تقييم ضعيف أقدم من أسبوعين = الوظيفة غالبًا اتقفلت؛ مش هنصرف عليها
+    # حصة تاني (135 من 30 أغسطس كانوا مستنيين يتعادوا — 21 نوفمبر).
+    from datetime import datetime, timedelta, timezone
+    stale = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
+    scored = {r["job_id"] for r in rows if r.get("model") not in WEAK_MODELS
+              or str(r.get("created_at") or "9999") < stale}
     weak = {r["job_id"] for r in rows if r.get("model") in WEAK_MODELS} - scored
     redo = len(weak)
     if redo:
